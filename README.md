@@ -6,8 +6,9 @@ Web estática (HTML + CSS + JavaScript, sin instalaciones ni compilación) para 
   (del equipo y jugador a jugador, con los comentarios de cada jornada), plantilla con la ficha de cada
   jugador, lesionados y normativa interna.
 - **Competición**: MVP de la última jornada, próximo entreno y partido, instrucciones del cuerpo técnico,
-  convocatoria, votación al MVP (la hacen los jugadores, sin PIN, y se cierra dos días después del
-  partido; el podio sale con nota sobre 10), calendario, clasificación y resultados.
+  convocatoria, **estrategia** (pizarra con el campo de fútbol 7, la alineación y flechas de ataque y
+  defensa), votación al MVP (la hacen los jugadores y se cierra dos días después del partido; el podio
+  sale con nota sobre 10), calendario, clasificación y resultados.
 - **Tesorería**: cuotas y multas pendientes de cada jugador («Al día» si no debe nada).
 - **Roles del equipo**: cuerpo técnico, capitanes, junta directiva y miembros fundadores.
 - **Tercer tiempo**: quedadas, cumpleaños y fotos.
@@ -36,12 +37,13 @@ los datos de CopaFácil se refrescan solos al abrir la web y al volver a ella tr
 
 | Quién | Qué edita |
 |---|---|
-| Jugadores (sin PIN) | Nada |
-| PIN del míster | Convocatorias, comentarios de los partidos e instrucciones del cuerpo técnico |
+| **PIN del equipo** | Nada: solo abre la web y deja votar al MVP. Lo tienen los 19 jugadores |
+| PIN del míster | Convocatorias, comentarios de los partidos, instrucciones del cuerpo técnico, la pizarra y el MVP a mano |
 | PIN del tesorero | Cuotas y multas |
-| PIN de administrador | Todo, incluidos los tres PIN |
+| PIN de administrador | Todo, incluidos los cuatro PIN |
 
-Los PIN se guardan en las propiedades del script, nunca en la hoja. Cada uno cambia solo el suyo;
+Sin el PIN del equipo el script no entrega ningún dato: la protección está en el servidor, no solo en la
+página. Los PIN se guardan en las propiedades del script, nunca en la hoja. Cada uno cambia solo el suyo;
 el administrador cambia los tres y puede consultarlos.
 
 ## Archivos

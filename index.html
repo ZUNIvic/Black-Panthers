@@ -23,7 +23,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://copafacil-web.firebaseio.com" crossorigin>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=2">
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -49,6 +49,21 @@
       <span data-staff-texto>Staff</span>
     </button>
   </header>
+
+  <section class="bloqueo" id="bloqueo" hidden>
+    <img src="assets/escudo-600.jpg" alt="" width="600" height="600">
+    <h1>Zona del equipo</h1>
+    <p>Esta web es solo para el Black Panthers F.C. Escribe el PIN del equipo para entrar.</p>
+    <form id="form-equipo">
+      <label class="campo">
+        <span>PIN del equipo</span>
+        <input id="pin-equipo-entrada" type="password" inputmode="numeric" autocomplete="off" required maxlength="20">
+      </label>
+      <p class="error" id="equipo-error" role="alert"></p>
+      <button class="boton ancho" type="submit">Entrar</button>
+    </form>
+    <p class="apagado">¿No lo tienes? Pídeselo al cuerpo técnico.</p>
+  </section>
 
   <main id="contenido">
     <!-- ───────────── 1. EQUIPO ───────────── -->
@@ -161,11 +176,13 @@
         <article class="tarjeta-grande" id="proximo-partido" aria-live="polite"></article>
       </div>
 
-      <div class="bloque">
-        <h2 class="titulo"><span>Instrucciones del cuerpo técnico</span></h2>
-        <div class="acciones-staff" id="staff-tecnico"></div>
-        <div id="mensaje-tecnico"></div>
-      </div>
+      <div class="columnas-comp">
+       <div>
+        <div class="bloque">
+          <h2 class="titulo"><span>Instrucciones del cuerpo técnico</span></h2>
+          <div class="acciones-staff" id="staff-tecnico"></div>
+          <div id="mensaje-tecnico"></div>
+        </div>
 
       <div class="bloque">
         <h2 class="titulo"><span>Convocatoria</span></h2>
@@ -174,6 +191,15 @@
           <select id="convocatoria-partido"></select>
         </label>
         <div id="convocatoria-proxima"></div>
+      </div>
+       </div>
+
+       <div class="bloque bloque-pizarra">
+         <h2 class="titulo"><span>Estrategia</span></h2>
+         <div class="acciones-staff" id="staff-estrategia"></div>
+         <p class="apagado" id="estrategia-partido"></p>
+         <div id="pizarra"></div>
+       </div>
       </div>
 
       <div class="bloque">
@@ -638,6 +664,6 @@
 
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=2"></script>
 </body>
 </html>

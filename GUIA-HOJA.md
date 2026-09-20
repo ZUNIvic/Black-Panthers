@@ -124,6 +124,18 @@ hay convocatoria, se usa la alineación del acta de CopaFácil.
 Los jugadores **no activos** no salen en estadísticas, convocatorias ni listas (no se borran: se pueden
 reactivar desde **Editar plantilla**).
 
+### El PIN del equipo
+
+La web solo se abre con el **PIN del equipo**, el mismo para los 19 jugadores. Se escribe una vez en cada
+móvil y no se vuelve a pedir. Sin él, el script no entrega **nada** (ni plantilla, ni cuotas, ni anuncios),
+así que no vale con mirar el código de la página.
+
+- Lo cambias tú desde **Equipo → Cambiar el PIN del equipo**, o desde la hoja con **🐾 Black Panthers →
+  Cambiar PIN**. Al cambiarlo, todos tendrán que escribir el nuevo.
+- Los PIN del míster, del tesorero y el tuyo también sirven para abrir la web: no hace falta llevar dos.
+- Es un secreto compartido: protege de curiosos, no de alguien que se lo pida a un jugador. La
+  clasificación y el calendario son públicos en CopaFácil de todas formas.
+
 ### Las dos direcciones
 
 - **La del equipo** (la que mandas al grupo): la dirección normal. No enseña ni «Actualizar», ni
@@ -135,8 +147,27 @@ reactivar desde **Editar plantilla**).
 - **Actualizar** e **Importar desde CopaFácil** solo los ve el administrador. Da igual: la web trae los
   datos de CopaFácil sola al abrirla y cada vez que se vuelve a ella pasados unos minutos.
 
+### La pizarra de estrategia
+
+En **Competición → Estrategia** hay un campo de fútbol 7 para el próximo partido:
+
+- El **cuerpo técnico** (PIN del míster o el tuyo) toca a un jugador del banquillo para ponerlo en el
+  campo y lo arrastra donde quiera.
+- Al tocar a un jugador que ya está en el campo salen tres opciones: **flecha de ataque** (roja),
+  **flecha de defensa** (azul, discontinua) y **quitar del campo**. Después de elegir la flecha, se toca
+  en el campo dónde acaba. Para borrar una flecha, se toca encima.
+- **Guardar pizarra** la deja visible para todo el equipo. **Vaciar** la deja en blanco.
+- Los jugadores la ven, pero no la pueden tocar.
+
+### El MVP a mano
+
+Si en un partido no votó nadie (o el cuerpo técnico quiere decidirlo), en el desplegable del MVP de ese
+partido hay un selector **«MVP a mano»**. Lo que se elija ahí manda sobre la votación y sale en la
+cabecera de Competición.
+
 ### Los PIN
 
+- Son cuatro: **equipo**, **míster**, **tesorero** y **administrador**.
 - **Cada uno cambia solo el suyo**: el míster, desde **Equipo**; el tesorero, desde **Tesorería**.
   Tú, con tu PIN de administrador, puedes cambiar los tres y **verlos** (botón **Ver los PIN**).
 - **Desde la hoja**: menú **🐾 Black Panthers → Cambiar PIN**. Solo funciona para el propietario de la hoja.
@@ -150,7 +181,7 @@ reactivar desde **Editar plantilla**).
 | Apartado | Qué contiene |
 |---|---|
 | **Equipo** | Escudo y frase, anuncios, estadísticas, aspectos a mejorar y puntos fuertes (con los comentarios de cada jornada desplegables), plantilla, lesionados y normativa. |
-| **Competición** | Próximo entreno y próximo partido, instrucciones del cuerpo técnico, convocatoria, **votación al MVP**, calendario, clasificación y resultados. |
+| **Competición** | Próximo entreno y próximo partido, instrucciones del cuerpo técnico, convocatoria, **estrategia**, **votación al MVP**, calendario, clasificación y resultados. |
 | **Tesorería** | Cuotas y multas pendientes de cada jugador. |
 | **Roles del equipo** | Cuerpo técnico, capitanes, junta directiva y fundadores. |
 | **Tercer tiempo** | Quedadas, cumpleaños y fotos. |

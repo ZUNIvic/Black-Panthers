@@ -18,12 +18,17 @@ async function aJson(respuesta) {
   }
 }
 
-export async function leerHoja(url) {
-  const ctrl = new AbortController();
-  const r = await conTiempo(fetch(url, { cache: 'no-store', signal: ctrl.signal }), 20000, ctrl);
-  if (!r.ok) throw new Error(`La hoja respondió ${r.status}`);
-  const datos = await aJson(r);
-  if (!datos.ok) throw new Error('La hoja devolvió un error');
+/**
+ * Lee los datos de la hoja. Si el equipo tiene PIN, va en la petición:
+ * sin él, el script no entrega nada.
+ */
+export async function leerHoja(url, pinEquipo = '') {
+  const datos = await enviarHoja(url, { accion: 'datos', pinEquipo });
+  if (!datos.ok) {
+    const e = new Error(datos.error === 'pin_equipo' ? 'Hace falta el PIN del equipo' : 'La hoja devolvió un error');
+    e.codigo = datos.error;
+    throw e;
+  }
   return datos;
 }
 

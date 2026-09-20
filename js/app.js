@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js';
-import { cargarCopaFacil } from './copafacil.js';
-import { leerHoja, enviarHoja } from './hoja.js';
+import { CONFIG } from './config.js?v=2';
+import { cargarCopaFacil } from './copafacil.js?v=2';
+import { leerHoja, enviarHoja } from './hoja.js?v=2';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -10,6 +10,7 @@ const CLAVE_PIN = 'bp_pin';
 const CLAVE_NIVEL = 'bp_nivel'; // 'staff' o 'tesoreria'
 const CLAVE_GESTION = 'bp_gestion'; // este aparato usa la URL de gestión
 const CLAVE_FIRMA = 'bp_firma';
+const CLAVE_EQUIPO = 'bp_equipo'; // PIN del equipo: solo deja mirar la web
 
 const estado = {
   cf: null,        // datos de CopaFácil
@@ -143,6 +144,7 @@ const esStaff = () => estado.staff && hayHoja();
 // Quién puede hacer qué (igual que en el script de la hoja). Lo que no está aquí es solo del administrador.
 const PERMISOS = {
   convocar: ['staff'], comentar: ['staff'], tesoreria: ['tesoreria'],
+  estrategia: ['staff'], mvp: ['staff'], // la pizarra y el MVP a mano
   mensajeTecnico: ['staff'], // las instrucciones del cuerpo técnico
   pinStaff: ['staff'],        // el míster cambia su propio PIN
   pinTesoreria: ['tesoreria'], // el tesorero, el suyo
@@ -592,12 +594,25 @@ function podio(partidoId) {
     .slice(0, 3);
 }
 
+const mvpDesignado = (partidoId) => jugadorPorId(estado.hoja?.mvp?.[partidoId]);
+
+/** El MVP de un partido: el que designó el cuerpo técnico o, si no, el más votado. */
+function mvpDe(p) {
+  if (!p) return null;
+  const aMano = mvpDesignado(p.id);
+  if (aMano) {
+    const { nota } = notasPartido(p.id);
+    return { j: aMano, estrellas: votosDe(p.id).totales[aMano.id] || 0, nota: nota(aMano.id), aMano: true };
+  }
+  return podio(p.id)[0] || null;
+}
+
 /** El MVP del último partido votado, para verlo nada más entrar en Competición. */
 function ultimoMvp() {
   const jugados = (estado.cf?.partidos || []).filter((x) => x.finalizado);
   for (let i = jugados.length - 1; i >= 0; i--) {
-    const tres = podio(jugados[i].id);
-    if (tres.length) return { partido: jugados[i], ...tres[0] };
+    const mejor = mvpDe(jugados[i]);
+    if (mejor) return { partido: jugados[i], ...mejor };
   }
   return null;
 }
@@ -613,7 +628,9 @@ function pintarMvpMini() {
     h('span', { class: 'texto-mvp' },
       h('span', { class: 'etiqueta-mvp', text: `MVP${m.partido.jornada ? ` J${m.partido.jornada}` : ''}` }),
       h('span', { class: 'nombre', text: nombreCorto(m.j) })),
-    h('span', { class: 'nota' }, nota1(m.nota), h('small', { class: 'de-diez', text: '/10' })));
+    m.nota === null || m.nota === undefined
+      ? h('span', { class: 'nota', text: 'MVP' })
+      : h('span', { class: 'nota' }, nota1(m.nota), h('small', { class: 'de-diez', text: '/10' })));
 }
 
 /** Desplegable "VOTA AL MVP" de un partido ya jugado. */
@@ -623,15 +640,16 @@ function bloqueVotacion(p, { abierto = false } = {}) {
   const yo = yoSoy();
   const yaVote = yo && votantes.includes(yo.id);
   const tres = podio(p.id);
+  const mejor = mvpDe(p);
   const sePuede = votacionAbierta(p);
 
   return h('details', { class: 'votacion', open: abierto || (sePuede && !tres.length) },
     h('summary', {},
       h('span', { class: 'titulo-votacion' },
-        tres.length ? imagen(tres[0].j.foto, '', 'foto-mvp') : icono('estrella'),
+        mejor ? imagen(mejor.j.foto, '', 'foto-mvp') : icono('estrella'),
         h('span', { class: 'texto-votacion' },
           h('span', { class: 'que', text: sePuede ? 'Vota al MVP' : 'MVP del partido' }),
-          tres.length ? h('span', { class: 'ganador', text: nombreCorto(tres[0].j) }) : null)),
+          mejor ? h('span', { class: 'ganador', text: nombreCorto(mejor.j) }) : null)),
       h('span', { class: 'apagado', text: votantes.length ? plural(votantes.length, 'voto', 'votos') : 'sin votos' })),
     h('div', { class: 'cuerpo-votacion' },
       h('p', { class: 'apagado', text: `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rivalDe(p).nombre}` }),
@@ -644,11 +662,38 @@ function bloqueVotacion(p, { abierto = false } = {}) {
               h('span', { class: 'nota' }, nota1(x.nota), h('small', { class: 'de-diez', text: '/10' })),
               h('span', { class: 'estrellas', text: `${x.estrellas} ★` }))))
         : h('p', { class: 'apagado', text: sePuede ? 'Todavía no ha votado nadie. ¡Sé el primero!' : 'Nadie votó en este partido.' }),
+      mejor?.aMano
+        ? h('p', { class: 'designado', text: `MVP del partido: ${mejor.j.nombre}, elegido por el cuerpo técnico.` })
+        : null,
+      permitido('mvp') ? selectorMvp(p) : null,
       sePuede
         ? h('div', { class: 'fila-acciones' },
             h('button', { type: 'button', class: 'boton', onclick: () => abrirVotacion(p) }, yaVote ? 'Cambiar mi voto' : 'Votar'),
             h('span', { class: 'apagado', text: `Se cierra ${cuantoFaltaCierre(p)}` }))
         : h('p', { class: 'apagado', text: 'La votación está cerrada (se cierra dos días después del partido).' })));
+}
+
+/** El cuerpo técnico designa al MVP de un partido (útil si no hubo votación). */
+function selectorMvp(p) {
+  const actual = mvpDesignado(p.id);
+  return h('label', { class: 'elegir-mvp' },
+    h('span', { text: 'MVP a mano:' }),
+    h('select', { onchange: (ev) => guardarMvp(p, ev.target.value) },
+      h('option', { value: '', text: '— Sin designar —', selected: !actual }),
+      jugadores().map((j) => h('option', { value: j.id, text: `${j.dorsal ?? '–'} · ${j.nombre}`, selected: actual?.id === j.id }))));
+}
+
+async function guardarMvp(p, jugadorId) {
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'mvp', pin: recuperar(CLAVE_PIN),
+    partidoId: p.id, jornada: p.jornada || '', rival: rivalDe(p).nombre, jugadorId,
+  }).catch(() => null);
+  if (r?.ok) {
+    aviso(jugadorId ? `MVP: ${jugadorPorId(jugadorId)?.nombre} ✓` : 'MVP quitado ✓');
+    cargarHoja();
+  } else {
+    aviso('No se ha podido guardar el MVP', true);
+  }
 }
 
 function cuantoFaltaCierre(p) {
@@ -722,6 +767,7 @@ async function guardarVoto() {
     try {
       const r = await enviarHoja(CONFIG.hoja, {
         accion: 'votar',
+        pinEquipo: recuperar(CLAVE_EQUIPO) || '',
         partidoId: votacion.partido.id,
         fecha: votacion.partido.fecha ? isoDe(votacion.partido.fecha) : '',
         votanteId: yo.id,
@@ -1370,6 +1416,7 @@ function bloquePin(cual) {
     h('div', { class: 'fila-acciones' },
       h('button', { type: 'button', class: 'boton-secundario', onclick: () => abrirCambioPin(cual) },
         `Cambiar el PIN ${esStaffPin ? 'del míster' : 'de tesorería'}`),
+      esAdmin() ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => abrirCambioPin('equipo') }, 'Cambiar el PIN del equipo') : null,
       esAdmin() ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => abrirCambioPin('admin') }, 'Cambiar mi PIN') : null,
       esAdmin() ? h('button', { type: 'button', class: 'boton-secundario', onclick: verPines }, 'Ver los PIN') : null));
 }
@@ -1383,7 +1430,7 @@ async function verPines() {
   try {
     const r = await enviarHoja(CONFIG.hoja, { accion: 'pines', pin: recuperar(CLAVE_PIN) });
     if (!r.ok) return aviso('No se han podido leer los PIN', true);
-    const etiquetas = { staff: 'Míster', tesoreria: 'Tesorero', admin: 'Tú (administrador)' };
+    const etiquetas = { equipo: 'Equipo (todos los jugadores)', staff: 'Míster', tesoreria: 'Tesorero', admin: 'Tú (administrador)' };
     pintar($('#lista-pines'), Object.keys(etiquetas).map((k) => h('li', {},
       h('span', { text: etiquetas[k] }), h('strong', { text: r.pines[k] || '—' }))));
     $('#dlg-pines').showModal();
@@ -1410,10 +1457,15 @@ let pinACambiar = null;
 
 function abrirCambioPin(cual) {
   pinACambiar = cual;
-  $('#dlg-cambiar-pin-titulo').textContent = cual === 'staff' ? 'PIN del staff' : 'Tu PIN de tesorería';
-  $('#cambiar-pin-ayuda').textContent = cual === 'staff'
-    ? 'Al cambiarlo, el cuerpo técnico tendrá que entrar con el PIN nuevo. Díselo tú.'
-    : 'Es solo tuyo. Apúntalo: no se puede volver a ver, solo cambiar.';
+  const titulos = { staff: 'PIN del míster', tesoreria: 'PIN de tesorería', equipo: 'PIN del equipo', admin: 'Tu PIN de administrador' };
+  const ayudas = {
+    staff: 'Al cambiarlo, el cuerpo técnico tendrá que entrar con el PIN nuevo. Díselo tú.',
+    tesoreria: 'Al cambiarlo, el tesorero tendrá que entrar con el PIN nuevo.',
+    equipo: 'Es el que abre la web. Al cambiarlo, todos los jugadores tendrán que escribir el nuevo.',
+    admin: 'Es solo tuyo: lo puede todo. Apúntalo en algún sitio seguro.',
+  };
+  $('#dlg-cambiar-pin-titulo').textContent = titulos[cual] || 'PIN';
+  $('#cambiar-pin-ayuda').textContent = ayudas[cual] || '';
   $('#pin-nuevo').value = '';
   $('#pin-repetido').value = '';
   $('#cambiar-pin-error').textContent = '';
@@ -1484,6 +1536,7 @@ function pintarTodo() {
   pintarValoraciones('mejorar');
   pintarValoraciones('fuertes');
   pintarMensajeTecnico();
+  pintarPizarra();
   pintarComentarios();
   pintarNormativa();
   pintarCompeticion();
@@ -1526,14 +1579,54 @@ async function cargarCf() {
 async function cargarHoja() {
   if (!hayHoja()) return;
   try {
-    estado.hoja = await leerHoja(CONFIG.hoja);
+    estado.hoja = await leerHoja(CONFIG.hoja, recuperar(CLAVE_EQUIPO) || '');
     estado.errorHoja = null;
+    estado.bloqueada = false;
     guardar(CLAVE_HOJA, estado.hoja);
   } catch (e) {
     console.error(e);
     estado.errorHoja = e;
+    if (e.codigo === 'pin_equipo') {
+      borrar(CLAVE_EQUIPO);
+      borrar(CLAVE_HOJA);
+      estado.hoja = null;
+      estado.bloqueada = true;
+    }
   }
+  bloquear(estado.bloqueada);
   pintarTodo();
+}
+
+/* ───────────────────────── PIN del equipo ───────────────────────── */
+
+/** Con PIN del equipo, la web no enseña nada hasta que se escribe. */
+function bloquear(si) {
+  $('#bloqueo').hidden = !si;
+  document.body.classList.toggle('bloqueada', Boolean(si));
+  if (si) setTimeout(() => $('#pin-equipo-entrada').focus(), 50);
+}
+
+async function entrarConPinEquipo(ev) {
+  ev.preventDefault();
+  const entrada = $('#pin-equipo-entrada');
+  const error = $('#equipo-error');
+  const pin = entrada.value.trim();
+  if (!pin) return;
+  error.textContent = 'Comprobando…';
+  try {
+    const datos = await leerHoja(CONFIG.hoja, pin);
+    guardar(CLAVE_EQUIPO, pin);
+    estado.hoja = datos;
+    estado.errorHoja = null;
+    estado.bloqueada = false;
+    guardar(CLAVE_HOJA, datos);
+    entrada.value = '';
+    error.textContent = '';
+    bloquear(false);
+    pintarTodo();
+  } catch (e) {
+    error.textContent = e.codigo === 'pin_equipo' ? 'PIN incorrecto.' : 'No se ha podido conectar con la hoja.';
+  }
 }
 
 async function actualizar({ manual = false } = {}) {
@@ -2282,6 +2375,261 @@ function mostrarVista(desdeClic) {
   if (desdeClic) window.scrollTo({ top: 0 });
 }
 
+/* ───────────────────────── Pizarra de estrategia ─────────────────────────
+   Campo de fútbol 7 con los dorsales. El cuerpo técnico coloca la alineación
+   y dibuja flechas de ataque (rojas) y de defensa (azules). */
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ALTO_CAMPO = 150; // el campo es 100 de ancho por 150 de alto
+
+let pizarra = { partidoId: null, jugadores: [], flechas: [], sel: null, modo: null, sucio: false };
+
+const svg = (etiqueta, attrs = {}, ...hijos) => {
+  const el = document.createElementNS(SVG_NS, etiqueta);
+  Object.entries(attrs).forEach(([k, v]) => { if (v !== null && v !== undefined) el.setAttribute(k, v); });
+  hijos.flat(Infinity).forEach((h) => el.appendChild(typeof h === 'string' ? document.createTextNode(h) : h));
+  return el;
+};
+
+/** El partido de la pizarra: el próximo, y si no queda ninguno, el último jugado. */
+function partidoPizarra() {
+  const proximo = proximoPartido();
+  if (proximo) return proximo;
+  const jugados = (estado.cf?.partidos || []).filter((p) => p.finalizado);
+  return jugados.length ? jugados[jugados.length - 1] : null;
+}
+
+function cargarPizarra(p) {
+  if (!p) return (pizarra = { partidoId: null, jugadores: [], flechas: [], sel: null, modo: null, sucio: false });
+  if (pizarra.partidoId === p.id && pizarra.sucio) return pizarra; // no pisar lo que está editando
+  const guardado = estado.hoja?.estrategia?.[p.id] || { jugadores: [], flechas: [] };
+  pizarra = {
+    partidoId: p.id,
+    jugadores: guardado.jugadores.map((j) => ({ ...j })),
+    flechas: guardado.flechas.map((f) => ({ ...f })),
+    sel: null, modo: null, sucio: false,
+  };
+  return pizarra;
+}
+
+/** Quién puede salir en la pizarra: los convocados y, si no hay lista, la plantilla. */
+function candidatosPizarra(p) {
+  const g = p ? gruposConvocatoria(p) : null;
+  const ids = g && g.convocados.length ? g.convocados : jugadores().map((j) => j.id);
+  return jugadores().filter((j) => ids.includes(j.id));
+}
+
+function dibujarCampo() {
+  const linea = { fill: 'none', stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 0.7 };
+  return [
+    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 1.5, fill: '#14532d' }),
+    svg('rect', { x: 3, y: 3, width: 94, height: ALTO_CAMPO - 6, ...linea }),
+    svg('line', { x1: 3, y1: ALTO_CAMPO / 2, x2: 97, y2: ALTO_CAMPO / 2, ...linea }),
+    svg('circle', { cx: 50, cy: ALTO_CAMPO / 2, r: 11, ...linea }),
+    // Áreas de fútbol 7
+    svg('rect', { x: 22, y: 3, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 22, y: ALTO_CAMPO - 25, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 38, y: 0.5, width: 24, height: 4, ...linea }),
+    svg('rect', { x: 38, y: ALTO_CAMPO - 4.5, width: 24, height: 4, ...linea }),
+  ];
+}
+
+function flechaSvg(f, i) {
+  const color = f.tipo === 'defensa' ? '#3b82f6' : '#ef4444';
+  return svg('g', { class: 'flecha', 'data-flecha': i },
+    svg('line', {
+      x1: f.x, y1: f.y * 1.5, x2: f.x2, y2: f.y2 * 1.5,
+      stroke: color, 'stroke-width': 1.4, 'stroke-linecap': 'round',
+      'marker-end': `url(#punta-${f.tipo})`,
+      'stroke-dasharray': f.tipo === 'defensa' ? '3 2' : null,
+    }));
+}
+
+function jugadorSvg(j, i) {
+  const ficha = jugadorPorId(j.id);
+  if (!ficha) return null;
+  return svg('g', { class: `pieza${pizarra.sel === j.id ? ' elegida' : ''}`, 'data-jugador': j.id, transform: `translate(${j.x} ${j.y * 1.5})` },
+    svg('circle', { r: 5.6, fill: '#ff6b00', stroke: '#000', 'stroke-width': 1 }),
+    svg('text', { y: 1.9, 'text-anchor': 'middle', 'font-size': 5.2, 'font-weight': 800, fill: '#000' }, String(ficha.dorsal ?? '·')),
+    svg('text', { y: 10.5, 'text-anchor': 'middle', 'font-size': 4, fill: '#fff', stroke: '#000', 'stroke-width': 1.1, 'paint-order': 'stroke' }, nombreCorto(ficha)));
+}
+
+function pintarPizarra() {
+  const caja = $('#pizarra');
+  const p = partidoPizarra();
+  const editable = permitido('estrategia');
+  $('#estrategia-partido').textContent = p
+    ? `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rivalDe(p).nombre}`
+    : '';
+  if (!p) return pintar(caja, vacio('No hay ningún partido al que preparar la estrategia.'));
+  if (!hayHoja()) return pintar(caja, vacio(SIN_HOJA));
+  cargarPizarra(p);
+
+  const campo = svg('svg', {
+    viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo', id: 'campo',
+    role: 'img', 'aria-label': 'Pizarra táctica del equipo',
+  },
+    svg('defs', {},
+      ...['ataque', 'defensa'].map((t) =>
+        svg('marker', { id: `punta-${t}`, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 4, markerHeight: 4, orient: 'auto-start-reverse' },
+          svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: t === 'defensa' ? '#3b82f6' : '#ef4444' })))),
+    dibujarCampo(),
+    pizarra.flechas.map(flechaSvg),
+    pizarra.jugadores.map(jugadorSvg));
+
+  const enCampo = pizarra.jugadores.map((j) => j.id);
+  const banquillo = candidatosPizarra(p).filter((j) => !enCampo.includes(j.id));
+
+  pintar(caja,
+    campo,
+    editable ? h('p', { class: 'ayuda', id: 'pizarra-ayuda' }) : null,
+    editable && pizarra.sel ? menuPieza() : null,
+    h('div', { class: 'banquillo' },
+      h('h3', { class: 'subtitulo', text: editable ? 'Toca a un jugador para ponerlo en el campo' : 'En el banquillo' }),
+      banquillo.length
+        ? h('ul', { class: 'chips' }, banquillo.map((j) =>
+            h('li', {},
+              h('button', {
+                type: 'button', class: 'chip', disabled: !editable,
+                onclick: () => { ponerEnCampo(j.id); },
+              }, h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)))))
+        : h('p', { class: 'apagado', text: 'Están todos en el campo.' })),
+    editable
+      ? h('div', { class: 'fila-acciones' },
+          h('button', { type: 'button', class: 'boton', onclick: guardarPizarra }, 'Guardar pizarra'),
+          h('button', { type: 'button', class: 'boton-secundario', onclick: vaciarPizarra }, 'Vaciar'))
+      : null);
+
+  if (editable) prepararCampo(campo);
+  mensajePizarra();
+}
+
+function mensajePizarra() {
+  const ayuda = $('#pizarra-ayuda');
+  if (!ayuda) return;
+  ayuda.textContent = pizarra.modo
+    ? `Toca en el campo dónde acaba la flecha de ${pizarra.modo}.`
+    : 'Arrastra a los jugadores para colocarlos. Toca a uno para añadirle flechas.';
+  ayuda.classList.toggle('activa', Boolean(pizarra.modo));
+}
+
+function menuPieza() {
+  const j = jugadorPorId(pizarra.sel);
+  return h('div', { class: 'menu-pieza' },
+    h('strong', { text: j ? nombreCorto(j) : '' }),
+    h('button', { type: 'button', class: 'chip ataque', onclick: () => { pizarra.modo = 'ataque'; mensajePizarra(); } }, 'Flecha de ataque'),
+    h('button', { type: 'button', class: 'chip defensa', onclick: () => { pizarra.modo = 'defensa'; mensajePizarra(); } }, 'Flecha de defensa'),
+    h('button', { type: 'button', class: 'chip', onclick: () => quitarDelCampo(pizarra.sel) }, 'Quitar del campo'),
+    h('button', { type: 'button', class: 'chip', onclick: () => { pizarra.sel = null; pizarra.modo = null; pintarPizarra(); } }, 'Cerrar'));
+}
+
+function ponerEnCampo(id) {
+  const libres = [[50, 20], [25, 35], [75, 35], [50, 45], [25, 62], [75, 62], [50, 78], [15, 50], [85, 50], [35, 88], [65, 88], [50, 95]];
+  const usados = pizarra.jugadores.map((j) => `${j.x},${j.y}`);
+  const hueco = libres.find(([x, y]) => !usados.includes(`${x},${y}`)) || [50, 50];
+  pizarra.jugadores.push({ id, x: hueco[0], y: hueco[1] });
+  pizarra.sucio = true;
+  pintarPizarra();
+}
+
+function quitarDelCampo(id) {
+  pizarra.jugadores = pizarra.jugadores.filter((j) => j.id !== id);
+  pizarra.sel = null;
+  pizarra.modo = null;
+  pizarra.sucio = true;
+  pintarPizarra();
+}
+
+function vaciarPizarra() {
+  pizarra.jugadores = [];
+  pizarra.flechas = [];
+  pizarra.sel = null;
+  pizarra.modo = null;
+  pizarra.sucio = true;
+  pintarPizarra();
+}
+
+/** Coordenadas del puntero dentro del campo, en la escala del dibujo. */
+function puntoCampo(campo, ev) {
+  const caja = campo.getBoundingClientRect();
+  const x = ((ev.clientX - caja.left) / caja.width) * 100;
+  const y = ((ev.clientY - caja.top) / caja.height) * ALTO_CAMPO;
+  return { x: Math.max(3, Math.min(97, x)), y: Math.max(3, Math.min(ALTO_CAMPO - 3, y)) / 1.5 };
+}
+
+function prepararCampo(campo) {
+  let arrastre = null;
+
+  campo.addEventListener('pointerdown', (ev) => {
+    const pieza = ev.target.closest('[data-jugador]');
+    const flecha = ev.target.closest('[data-flecha]');
+    if (pizarra.modo && pizarra.sel) return; // esperando el final de la flecha
+    if (flecha && !pieza) {
+      pizarra.flechas.splice(Number(flecha.dataset.flecha), 1);
+      pizarra.sucio = true;
+      return pintarPizarra();
+    }
+    if (!pieza) return;
+    const j = pizarra.jugadores.find((x) => x.id === pieza.dataset.jugador);
+    if (!j) return;
+    try { campo.setPointerCapture(ev.pointerId); } catch { /* el ratón ya está capturado */ }
+    arrastre = { j, movido: false, pieza };
+    ev.preventDefault();
+  });
+
+  campo.addEventListener('pointermove', (ev) => {
+    if (!arrastre) return;
+    const { x, y } = puntoCampo(campo, ev);
+    arrastre.j.x = Math.round(x);
+    arrastre.j.y = Math.round(y);
+    arrastre.movido = true;
+    arrastre.pieza.setAttribute('transform', `translate(${arrastre.j.x} ${arrastre.j.y * 1.5})`);
+  });
+
+  campo.addEventListener('pointerup', (ev) => {
+    if (arrastre) {
+      const { j, movido } = arrastre;
+      arrastre = null;
+      if (movido) {
+        pizarra.sucio = true;
+        return;
+      }
+      pizarra.sel = pizarra.sel === j.id ? null : j.id;
+      pizarra.modo = null;
+      return pintarPizarra();
+    }
+    if (pizarra.modo && pizarra.sel) {
+      const desde = pizarra.jugadores.find((x) => x.id === pizarra.sel);
+      const { x, y } = puntoCampo(campo, ev);
+      if (desde) {
+        pizarra.flechas.push({ tipo: pizarra.modo, x: desde.x, y: desde.y, x2: Math.round(x), y2: Math.round(y) });
+        pizarra.sucio = true;
+      }
+      pizarra.modo = null;
+      pizarra.sel = null;
+      pintarPizarra();
+    }
+  });
+}
+
+async function guardarPizarra() {
+  const p = partidoPizarra();
+  if (!p || !permitido('estrategia')) return;
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'estrategia', pin: recuperar(CLAVE_PIN),
+    partidoId: p.id,
+    jugadores: pizarra.jugadores.map((j) => ({ id: j.id, x: j.x, y: j.y })),
+    flechas: pizarra.flechas,
+  }).catch(() => null);
+  if (r?.ok) {
+    pizarra.sucio = false;
+    aviso('Pizarra guardada ✓');
+    cargarHoja();
+  } else {
+    aviso(r?.error === 'sin_permiso' ? 'Ese PIN no puede tocar la pizarra' : 'No se ha podido guardar la pizarra', true);
+  }
+}
+
 /* ───────────────────────── Arranque ───────────────────────── */
 
 function iniciar() {
@@ -2295,6 +2643,7 @@ function iniciar() {
 
   window.addEventListener('hashchange', () => mostrarVista(true));
   document.querySelectorAll('[data-actualizar]').forEach((b) => b.addEventListener('click', () => actualizar({ manual: true })));
+  $('#form-equipo').addEventListener('submit', entrarConPinEquipo);
   prepararStaff();
 
   // Al volver a la pestaña tras un rato, se refresca solo.

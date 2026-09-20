@@ -42,6 +42,8 @@ const HOJAS = {
   FOTOS: 'FOTOS',
   CONVOCATORIAS: 'CONVOCATORIAS',
   VOTOS: 'VOTOS',
+  MVP: 'MVP',
+  ESTRATEGIA: 'ESTRATEGIA',
 };
 
 // Roles del equipo (se pueden poner varios por jugador, separados por comas).
@@ -109,6 +111,14 @@ const ESTRUCTURA = {
     cabecera: ['Partido ID', 'Votante ID', 'Votante', 'Votado ID', 'Votado', 'Estrellas', 'Cuándo'],
     anchos: [130, 130, 200, 130, 200, 90, 150],
   },
+  MVP: {
+    cabecera: ['Partido ID', 'Jornada', 'Rival', 'Jugador ID', 'Jugador', 'Actualizado'],
+    anchos: [130, 80, 220, 130, 220, 150],
+  },
+  ESTRATEGIA: {
+    cabecera: ['Partido ID', 'Tipo', 'Jugador ID', 'Jugador', 'X', 'Y', 'X2', 'Y2', 'Actualizado'],
+    anchos: [130, 90, 130, 200, 70, 70, 70, 70, 150],
+  },
 };
 
 /* ───────────────────────── Menú ───────────────────────── */
@@ -119,15 +129,25 @@ function onOpen() {
     .addItem('Preparar hoja (primera vez)', 'prepararHoja')
     .addItem('Actualizar jugadores desde CopaFácil', 'actualizarJugadores')
     .addItem('🔒 Cambiar PIN (solo el propietario)', 'cambiarPinDesdeMenu')
+    .addItem('Cargar la normativa interna', 'cargarNormativaInterna')
     .addToUi();
 }
 
 /* ───────────────────────── Web: lectura ───────────────────────── */
 
+/**
+ * Lectura abierta: solo funciona mientras no haya PIN del equipo.
+ * En cuanto se pone uno, la web pide los datos por POST con ese PIN.
+ */
 function doGet() {
+  if (pinesGuardados_().equipo) return json_({ ok: false, error: 'pin_equipo' });
+  return json_(publico_());
+}
+
+function publico_() {
   const cache = CacheService.getScriptCache();
   const guardado = cache.get('publico');
-  if (guardado) return json_(JSON.parse(guardado));
+  if (guardado) return JSON.parse(guardado);
 
   const datos = datosPublicos_();
   try {
@@ -135,7 +155,7 @@ function doGet() {
   } catch (e) {
     // Si no cabe en caché (más de 100 KB) simplemente no se guarda.
   }
-  return json_(datos);
+  return datos;
 }
 
 function datosPublicos_() {
@@ -279,6 +299,8 @@ function datosPublicos_() {
     },
     convocatorias: leerConvocatorias_(),
     votos: leerVotos_(),
+    mvp: leerMvp_(),
+    estrategia: leerEstrategia_(),
   };
 }
 
@@ -366,6 +388,37 @@ function leerVotos_() {
   return res;
 }
 
+/** MVP designado a mano por el cuerpo técnico: partido → jugador. */
+function leerMvp_() {
+  const res = {};
+  filas_(HOJAS.MVP).forEach((f) => {
+    const partido = texto_(f['Partido ID']);
+    const jugador = texto_(f['Jugador ID']);
+    if (partido && jugador) res[partido] = jugador;
+  });
+  return res;
+}
+
+/** La pizarra de cada partido: dónde va cada jugador y las flechas. */
+function leerEstrategia_() {
+  const res = {};
+  filas_(HOJAS.ESTRATEGIA).forEach((f) => {
+    const partido = texto_(f['Partido ID']);
+    const tipo = normaliza_(f['Tipo']);
+    if (!partido) return;
+    const e = (res[partido] = res[partido] || { jugadores: [], flechas: [] });
+    const x = Number(f['X']) || 0;
+    const y = Number(f['Y']) || 0;
+    if (tipo === 'jugador') {
+      const id = texto_(f['Jugador ID']);
+      if (id) e.jugadores.push({ id: id, x: x, y: y });
+    } else if (tipo === 'ataque' || tipo === 'defensa') {
+      e.flechas.push({ tipo: tipo, x: x, y: y, x2: Number(f['X2']) || 0, y2: Number(f['Y2']) || 0 });
+    }
+  });
+  return res;
+}
+
 /* ───────────────────────── Web: escritura (staff) ───────────────────────── */
 
 function doPost(e) {
@@ -376,8 +429,15 @@ function doPost(e) {
     return json_({ ok: false, error: 'peticion_invalida' });
   }
 
-  // Votar al MVP es cosa de los jugadores: no lleva PIN.
+  // Los datos: hace falta el PIN del equipo (o el de cualquiera del cuerpo técnico).
+  if (peticion.accion === 'datos') {
+    if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo' });
+    return json_(publico_());
+  }
+
+  // Votar al MVP es cosa de los jugadores: les basta el PIN del equipo.
   if (peticion.accion === 'votar') {
+    if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo' });
     const lock = LockService.getScriptLock();
     lock.waitLock(20000);
     let resultado;
@@ -435,6 +495,8 @@ const PERMISOS = {
   comentar: ['staff'],
   mensaje: ['staff'],    // solo el mensaje del cuerpo técnico (se comprueba en doPost)
   tesoreria: ['tesoreria'], // el tesorero
+  estrategia: ['staff'],    // la pizarra es del cuerpo técnico
+  mvp: ['staff'],
   cambiarPin: ['staff', 'tesoreria'], // cada uno solo el suyo (se comprueba en doPost)
 };
 
@@ -451,6 +513,8 @@ const ACCIONES = {
   cumples: guardarCumples_,
   cambiarPin: cambiarPin_,
   pines: verPines_,
+  mvp: guardarMvp_,
+  estrategia: guardarEstrategia_,
 };
 
 /** ID de CopaFácil → nombre (columna Nombre de JUGADORES). Trae fichajes nuevos si hace falta. */
@@ -659,6 +723,63 @@ function guardarVoto_(p) {
   return { ok: true, guardados: nuevas.length };
 }
 
+/** MVP designado a mano (para partidos sin votación). Sin jugador, se quita. */
+function guardarMvp_(p) {
+  const partido = texto_(p.partidoId);
+  if (!/^\d{5,20}$/.test(partido)) return { ok: false, error: 'datos_invalidos' };
+  const hoja = asegurarHoja_(HOJAS.MVP);
+  borrarFilasDe_(hoja, partido);
+  const id = texto_(p.jugadorId);
+  if (!id) return { ok: true, guardados: 0 };
+  const nombres = nombresPorId_([id]);
+  if (!nombres[id]) return { ok: false, error: 'jugador_desconocido' };
+  hoja.appendRow([partido, texto_(p.jornada), texto_(p.rival), id, nombres[id], new Date()]);
+  hoja.getRange(hoja.getLastRow(), 6).setNumberFormat('dd/mm/yyyy HH:mm');
+  return { ok: true, guardados: 1 };
+}
+
+/** La pizarra de un partido: posiciones de los jugadores y flechas. */
+function guardarEstrategia_(p) {
+  const partido = texto_(p.partidoId);
+  if (!/^\d{5,20}$/.test(partido)) return { ok: false, error: 'datos_invalidos' };
+  const jugadores = Array.isArray(p.jugadores) ? p.jugadores.slice(0, 30) : [];
+  const flechas = Array.isArray(p.flechas) ? p.flechas.slice(0, 60) : [];
+  const nombres = nombresPorId_(jugadores.map(function (j) { return texto_(j && j.id); }));
+
+  const ahora = new Date();
+  const filas = [];
+  const pc = function (v) { return Math.max(0, Math.min(100, Math.round(Number(v) || 0))); };
+  jugadores.forEach(function (j) {
+    const id = texto_(j && j.id);
+    if (!id || !nombres[id]) return;
+    if (filas.some(function (f) { return f[2] === id; })) return;
+    filas.push([partido, 'jugador', id, nombres[id], pc(j.x), pc(j.y), '', '', ahora]);
+  });
+  flechas.forEach(function (f) {
+    const tipo = normaliza_(f && f.tipo) === 'defensa' ? 'defensa' : 'ataque';
+    filas.push([partido, tipo, '', '', pc(f.x), pc(f.y), pc(f.x2), pc(f.y2), ahora]);
+  });
+
+  const hoja = asegurarHoja_(HOJAS.ESTRATEGIA);
+  borrarFilasDe_(hoja, partido);
+  if (filas.length) {
+    const inicio = ultimaFilaCon_(hoja, 1) + 1;
+    hoja.getRange(inicio, 1, filas.length, 9).setValues(filas);
+    hoja.getRange(inicio, 9, filas.length, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+  }
+  return { ok: true, guardados: filas.length };
+}
+
+/** Borra las filas de un partido (columna A) de arriba a abajo. */
+function borrarFilasDe_(hoja, partido) {
+  const ultima = ultimaFilaCon_(hoja, 1);
+  if (ultima < 2) return;
+  const v = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+  for (let i = v.length - 1; i >= 0; i--) {
+    if (texto_(v[i][0]) === partido) hoja.deleteRow(i + 2);
+  }
+}
+
 /** Pasar lista de un entreno: crea o actualiza la fila de esa fecha en ENTRENOS. */
 function guardarEntreno_(p) {
   const fecha = texto_(p.fecha);
@@ -839,7 +960,28 @@ function guardarRoles_(p) {
   */
 function pinesGuardados_() {
   const props = PropertiesService.getScriptProperties();
-  return { staff: texto_(props.getProperty('PIN_STAFF')), tesoreria: texto_(props.getProperty('PIN_TESORERIA')), admin: texto_(props.getProperty('PIN_ADMIN')) };
+  return {
+    equipo: texto_(props.getProperty('PIN_EQUIPO')),
+    staff: texto_(props.getProperty('PIN_STAFF')),
+    tesoreria: texto_(props.getProperty('PIN_TESORERIA')),
+    admin: texto_(props.getProperty('PIN_ADMIN')),
+  };
+}
+
+/**
+ * ¿Puede ver la web? Vale el PIN del equipo o el de cualquiera del cuerpo técnico.
+ * Si no hay PIN del equipo, la web es abierta y pasa cualquiera.
+ * Se cuentan los fallos para que nadie pruebe PIN a lo bruto.
+ */
+function puedeVer_(pin) {
+  const equipo = pinesGuardados_().equipo;
+  if (!equipo) return true;
+  const p = texto_(pin);
+  if (p === equipo || nivelPin_(p)) return true;
+  const cache = CacheService.getScriptCache();
+  const fallos = Number(cache.get('fallos_equipo') || 0);
+  if (fallos < MAX_FALLOS_PIN) cache.put('fallos_equipo', String(fallos + 1), 15 * 60);
+  return false;
 }
 
 /** 'admin', 'tesoreria', 'staff' o null. */
@@ -848,6 +990,7 @@ function nivelPin_(pin) {
   if (!/^\d{4,8}$/.test(p)) return null;
   const pines = pinesGuardados_();
   if (p === pines.admin) return 'admin';
+  if (p === pines.equipo) return null; // el del equipo solo deja mirar, no editar
   if (p === pines.tesoreria) return 'tesoreria';
   if (p === pines.staff) return 'staff';
   return null;
@@ -858,7 +1001,7 @@ function verPines_() {
   return { ok: true, pines: pinesGuardados_() };
 }
 
-const CLAVE_PIN_ = { staff: 'PIN_STAFF', tesoreria: 'PIN_TESORERIA', admin: 'PIN_ADMIN' };
+const CLAVE_PIN_ = { equipo: 'PIN_EQUIPO', staff: 'PIN_STAFF', tesoreria: 'PIN_TESORERIA', admin: 'PIN_ADMIN' };
 
 /** Guarda un PIN nuevo. Devuelve un texto de error o '' si todo va bien. */
 function ponerPin_(cual, nuevo) {
@@ -912,6 +1055,7 @@ function cambiarPinDesdeMenu() {
   const nuevos = {
     staff: pedirPin_('PIN del míster', 'Nuevo PIN del míster: convocatorias y comentarios (Cancelar para no cambiarlo).'),
     tesoreria: pedirPin_('PIN del tesorero', 'Nuevo PIN del tesorero: cuotas y multas (Cancelar para no cambiarlo).'),
+    equipo: pedirPin_('PIN del equipo', 'Nuevo PIN del equipo: el que necesitan los jugadores para abrir la web (Cancelar para no cambiarlo).'),
     admin: pedirPin_('Tu PIN de administrador', 'Nuevo PIN de administrador: lo puede todo (Cancelar para no cambiarlo).'),
   };
   const errores = Object.keys(nuevos).filter((c) => nuevos[c]).map((c) => ponerPin_(c, nuevos[c]));
@@ -998,6 +1142,7 @@ function prepararHoja() {
       'COMENTARIOS: lo que dice el cuerpo técnico de cada partido. Pon el número de jornada y en "Para" elige "Todo el equipo" o un jugador (una fila por comentario).',
       'NORMATIVA: normas internas del equipo, una por fila.',
       'QUEDADAS / FOTOS: el tercer tiempo. En FOTOS pega el enlace de Google Drive de cada foto, compartida con "cualquiera con el enlace".',
+      'MVP y ESTRATEGIA: las rellena la web (MVP designado a mano y la pizarra de cada partido). No hace falta tocarlas.',
       'VOTOS: los votos al MVP de cada partido. Los rellenan los jugadores desde la web, sin PIN. No hace falta tocarla.',
       'CONVOCATORIAS: la rellena la web (modo staff). Estado: Convocado, No viene o No convocado. Después del partido, lo que quede es quién vino.',
     ];
@@ -1057,6 +1202,7 @@ function prepararHoja() {
   const props = PropertiesService.getScriptProperties();
   const avisos = [];
   const pedir = [
+    ['equipo', 'PIN del equipo', 'Lo necesitan todos los jugadores para abrir la web.'],
     ['staff', 'PIN del míster', 'Convocatorias y comentarios de los partidos.'],
     ['tesoreria', 'PIN del tesorero', 'Cuotas y multas.'],
     ['admin', 'Tu PIN de administrador', 'Lo puede todo: anuncios, plantilla, roles, entrenos, tercer tiempo y los tres PIN.'],
@@ -1073,6 +1219,49 @@ function prepararHoja() {
   SpreadsheetApp.getUi().alert(
     'Hoja preparada ✅' + (avisos.length ? '\n\n' + avisos.join('\n') + '\n\nApúntalos. Con el de administrador puedes consultar los tres desde la web.' : '')
   );
+}
+
+/**
+ * Carga la normativa interna de la temporada en la hoja NORMATIVA.
+ * Se puede volver a ejecutar: pregunta antes de sustituir lo que haya.
+ */
+function cargarNormativaInterna() {
+  const normas = [
+    ['Convocatoria: 12 jugadores por partido',
+     '7 titulares y 5 suplentes.'],
+    ['Rotación y prioridad',
+     'Los 4 jugadores que se queden fuera de la lista en una jornada tienen plaza reservada prioritaria para el siguiente partido: 48 h para confirmar desde que se abre la lista. Las 8 plazas restantes se ocupan por estricto orden de inscripción en el grupo.'],
+    ['Cancelaciones',
+     'Cancelar con menos de 24 h de antelación y sin causa justificada: pierdes el turno de prioridad en la siguiente rotación.'],
+    ['Cuota mensual: 10,00 € por jugador',
+     'Para aguas, bebidas, balones, petos, botiquín, cenas, etc.'],
+    ['Amarilla normal: 0,50 €',
+     'Falta común o lance del juego. Se paga únicamente la multa de la liga.'],
+    ['Amarilla por protestar o reincidencia: 1,50 €',
+     '0,50 € de la liga y 1,00 € al bote del club. Si es por protestar o por reiteración grave sube a 2,00 € (0,50 € de la liga y 1,50 € al bote).'],
+    ['Tarjeta roja: 10,00 €',
+     'Por cualquier motivo: 5,00 € de la liga y 5,00 € al bote del club.'],
+    ['Rotaciones: todos los mismos minutos',
+     'Con 12 convocados se hacen cambios en bloque. Min 0-10: equipo titular (7 en campo). Min 10-20: entran los 5 suplentes. Min 20-30: rotación de bloque (cierre de la primera parte e inicio de la segunda). Min 30-40: rotación de bloque. Min 40-50: cambios libres según cansancio y marcador.'],
+    ['Respeto total entre compañeros',
+     'Cero gritos, malas caras o insultos.'],
+    ['Con el árbitro habla solo el capitán',
+     'Amarilla por protestar: suplencia obligatoria en la siguiente jornada. Roja directa: un partido de suspensión interna.'],
+  ];
+
+  const hoja = asegurarHoja_(HOJAS.NORMATIVA);
+  const ui = SpreadsheetApp.getUi();
+  const ultima = ultimaFilaCon_(hoja, 1);
+  if (ultima > 1) {
+    const r = ui.alert('Normativa interna', 'La hoja NORMATIVA ya tiene ' + (ultima - 1) + ' filas. ¿Las sustituyo por la normativa de la temporada?', ui.ButtonSet.YES_NO);
+    if (r !== ui.Button.YES) return;
+    hoja.deleteRows(2, ultima - 1);
+  }
+  hoja.getRange(2, 1, normas.length, 3).setValues(normas.map(function (n) { return [n[0], n[1], true]; }));
+  formatearColumnas_();
+  CacheService.getScriptCache().remove('publico');
+  SpreadsheetApp.getActive().setActiveSheet(hoja);
+  ui.alert('Normativa cargada ✅', normas.length + ' normas. Ya se ven en la web, en Equipo → Normativa interna.', ui.ButtonSet.OK);
 }
 
 function ponerRolesIniciales_() {

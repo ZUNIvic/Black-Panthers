@@ -877,68 +877,125 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ───────── Oro: próximo entreno y votación al MVP ───────── */
-:root { --oro: #ffdc5e; --oro-2: #e8b400; --oro-borde: #c99700; --oro-tinta: #6b5200; --rojo-oro: #a81409; }
+/* ───────── Oro: entreno, votación al MVP y anuncios ─────────
+   Colores planos y opacos (sin degradados ni transparencias): así se ve
+   exactamente igual en el móvil y en el ordenador. */
+:root {
+  --oro: #ffcc00;          /* fondo amarillo */
+  --oro-borde: #a37a00;
+  --naranja-oro: #b33c00;  /* naranja oscuro: el único que se lee bien sobre amarillo */
+  --negro-oro: #000000;
+}
 
 .tarjeta-grande.entreno {
-  background: linear-gradient(160deg, var(--oro), var(--oro-2) 78%);
-  border-color: var(--oro-borde); color: #111;
+  background: var(--oro); background-image: none;
+  border-color: var(--oro-borde); color: var(--negro-oro);
 }
-.tarjeta-grande.entreno::after { background: radial-gradient(closest-side, rgba(255, 255, 255, 0.55), transparent); }
-.entreno .sobretitulo, .entreno .icono-grande, .entreno .cuando .hora, .entreno .donde svg { color: var(--rojo-oro); }
-.entreno .cuando .dia, .entreno .donde, .entreno .donde a { color: #111; }
-.entreno .cuando .falta, .entreno .nota, .entreno .vacio { color: var(--oro-tinta); }
+.tarjeta-grande.entreno::after { display: none; }
+.entreno .icono-grande, .entreno .cuando .hora, .entreno .donde svg { color: var(--naranja-oro); }
+.entreno .sobretitulo, .entreno .cuando .dia, .entreno .cuando .falta,
+.entreno .donde, .entreno .donde a, .entreno .nota, .entreno .vacio { color: var(--negro-oro); }
+.entreno .nota, .entreno .cuando .falta { font-weight: 600; }
 .destacados-comp .entreno .donde a { word-break: break-word; }
-.entreno .boton { background: #111; color: var(--oro); }
-.entreno .boton:hover { background: #000; }
-.entreno .boton-secundario { border-color: rgba(0, 0, 0, 0.45); color: #111; }
-.entreno .boton-secundario:hover { background: rgba(0, 0, 0, 0.08); border-color: #111; }
+.entreno .boton { background: var(--negro-oro); color: var(--oro); }
+.entreno .boton:hover { background: #1a1a1a; }
+.entreno .boton-secundario { border-color: var(--negro-oro); color: var(--negro-oro); border-width: 2px; }
+.entreno .boton-secundario:hover { background: #e6b800; }
 
 .votacion {
-  background: linear-gradient(160deg, var(--oro), var(--oro-2) 78%);
-  border-color: var(--oro-borde); color: #111;
+  background: var(--oro); background-image: none;
+  border-color: var(--oro-borde); color: var(--negro-oro);
 }
-.votacion .apagado { color: var(--oro-tinta); }
-.votacion summary::after, .votacion .titulo-votacion svg { color: var(--rojo-oro); }
+.votacion .apagado { color: var(--negro-oro); }
+.votacion summary::after, .votacion .titulo-votacion svg { color: var(--naranja-oro); }
 .titulo-votacion .foto-mvp, .titulo-votacion .foto-vacia {
-  width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid #111; background: var(--oro);
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--negro-oro); background: var(--oro);
 }
-.titulo-votacion .ganador { font-size: 0.95rem; color: var(--rojo-oro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titulo-votacion .ganador { font-size: 0.95rem; color: var(--naranja-oro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .votacion summary .apagado { white-space: nowrap; font-size: 0.8rem; }
-.votacion .podio li { background: rgba(255, 255, 255, 0.55); }
-.votacion .podio .nombre { color: #111; }
-.votacion .podio .estrellas { color: var(--rojo-oro); }
-.votacion .podio .nota { background: #111; color: var(--oro); }
-.votacion .podio .puesto-1 { border-color: #111; }
-.votacion .boton { background: #111; color: var(--oro); }
-.votacion .boton:hover { background: #000; }
+.votacion .podio li { background: #fff3bf; }
+.votacion .podio .nombre { color: var(--negro-oro); }
+.votacion .podio .estrellas { color: var(--naranja-oro); }
+.votacion .podio .nota { background: var(--negro-oro); color: var(--oro); }
+.votacion .podio .puesto-1 { border-color: var(--negro-oro); }
+.votacion .boton { background: var(--negro-oro); color: var(--oro); }
+.votacion .boton:hover { background: #1a1a1a; }
 
 /* Anuncios en oro */
 .anuncio, .anuncio.importante {
-  background: linear-gradient(160deg, var(--oro), var(--oro-2) 78%);
-  border-color: var(--oro-borde); color: #111;
+  background: var(--oro); background-image: none;
+  border-color: var(--oro-borde); color: var(--negro-oro);
 }
 .anuncio.importante { border-width: 2px; }
-.anuncio h3 { color: #111; }
-.anuncio p { color: #222; }
-.anuncio .fecha { color: var(--oro-tinta); }
-.anuncio .etiqueta { background: var(--rojo-oro); color: var(--oro); }
+.anuncio h3, .anuncio p, .anuncio .fecha { color: var(--negro-oro); }
+.anuncio .etiqueta { background: var(--naranja-oro); color: #fff; }
 
 /* MVP de la última jornada, junto a la frase de Competición */
 .mvp-mini {
   display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0;
-  background: linear-gradient(160deg, var(--oro), var(--oro-2) 78%);
-  border: 1px solid var(--oro-borde); border-radius: 999px; padding: 3px 4px 3px 3px; color: #111;
+  background: var(--oro); border: 1px solid var(--oro-borde); border-radius: 999px;
+  padding: 4px 6px 4px 4px; color: var(--negro-oro);
 }
-.mvp-mini { padding: 4px 6px 4px 4px; }
 .mvp-mini img, .mvp-mini .foto-vacia {
-  width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #111; background: var(--oro);
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--negro-oro); background: var(--oro);
 }
 .mvp-mini .texto-mvp { display: grid; line-height: 1.1; }
-.mvp-mini .etiqueta-mvp { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; color: var(--rojo-oro); }
+.mvp-mini .etiqueta-mvp { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; color: var(--naranja-oro); }
 .mvp-mini .nombre { font-size: 0.9rem; font-weight: 700; white-space: nowrap; }
 .mvp-mini .nota {
-  font-family: var(--display); font-size: 1.15rem; background: #111; color: var(--oro);
+  font-family: var(--display); font-size: 1.15rem; background: var(--negro-oro); color: var(--oro);
   border-radius: 999px; padding: 2px 9px;
 }
-.nota .de-diez { font-size: 0.6em; opacity: 0.75; margin-left: 1px; }
+.nota .de-diez { font-size: 0.6em; margin-left: 1px; }
+.votacion .designado { font-weight: 700; }
+
+/* ───────── Candado: PIN del equipo ───────── */
+.bloqueo {
+  position: fixed; inset: 0; z-index: 100; overflow: auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); text-align: center;
+  background: var(--negro);
+}
+.bloqueo img { width: min(46vw, 190px); height: auto; }
+.bloqueo h1 { font-family: var(--display); font-size: 2rem; text-transform: uppercase; }
+.bloqueo p { color: var(--texto-2); max-width: 36ch; margin: 0; }
+.bloqueo form { width: min(100%, 300px); display: grid; gap: 10px; margin-top: 4px; }
+body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-inferior, body.bloqueada > .pie { display: none; }
+
+/* ───────── Competición: dos columnas con la pizarra ───────── */
+.columnas-comp { display: grid; gap: 14px; }
+@media (min-width: 900px) {
+  .columnas-comp { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  .columnas-comp > div > .bloque:first-child { margin-top: 0; }
+  .bloque-pizarra { margin-top: 0; }
+}
+
+/* ───────── Pizarra de estrategia ───────── */
+#pizarra { display: grid; gap: 10px; }
+.campo {
+  width: 100%; max-width: 360px; height: auto; aspect-ratio: 100 / 150; margin: 0 auto; display: block;
+  border-radius: 12px; border: 1px solid var(--borde); touch-action: none; background: #14532d;
+}
+.campo .pieza { cursor: grab; }
+.campo .pieza.elegida circle { stroke: #fff; stroke-width: 1.6; }
+.campo .flecha { cursor: pointer; }
+#pizarra-ayuda { text-align: center; margin: 0; }
+#pizarra-ayuda.activa { color: var(--naranja); font-weight: 700; }
+.menu-pieza {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center;
+  background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 8px;
+}
+.menu-pieza strong { margin-right: 4px; }
+.menu-pieza .chip { cursor: pointer; }
+.menu-pieza .chip.ataque { border-color: #ef4444; color: #ffb1ab; }
+.menu-pieza .chip.defensa { border-color: #3b82f6; color: #b9d5ff; }
+.banquillo .chips .chip { cursor: pointer; }
+.banquillo .chips .chip[disabled] { cursor: default; opacity: 0.85; }
+.votacion .designado { font-weight: 700; margin: 8px 0 0; }
+.elegir-mvp { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: 700; flex-wrap: wrap; }
+.elegir-mvp select {
+  flex: 1; min-width: 160px; background: var(--negro-oro); color: var(--oro); border: 0;
+  border-radius: 8px; padding: 8px 10px; font: inherit; font-weight: 600;
+}
