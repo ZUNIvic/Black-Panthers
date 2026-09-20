@@ -1,0 +1,6 @@
+# Imágenes originales sueltas y basura del sistema
+WhatsApp Image*.jpeg
+Thumbs.db
+.DS_Store
+node_modules/
+.claude/
