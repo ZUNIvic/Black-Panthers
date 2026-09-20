@@ -1004,3 +1004,43 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .rol.fundadores h3, .rol.fundadores .nombre-rol { color: #000; }
 .rol.fundadores .cargo { color: var(--naranja-oro); }
 .rol.fundadores .foto-rol, .rol.fundadores .persona .foto-vacia { border-color: #000; }
+
+/* ───────── Colores pedidos: valoraciones, tesorería, goles y normativa ───────── */
+.columna-valoracion { border-radius: var(--radio); padding: 12px 14px; margin-bottom: 10px; }
+.columna-valoracion .subtitulo { color: #fff; margin-bottom: 8px; }
+.columna-valoracion.roja { background: #b3261e; border: 1px solid #7f1b16; }
+.columna-valoracion.verde { background: #166534; border: 1px solid #0d4022; }
+.columna-valoracion .lista-mejorar strong,
+.columna-valoracion .lista-mejorar p,
+.columna-valoracion .apagado,
+.columna-valoracion .vacio { color: #fff; }
+.columna-valoracion .lista-mejorar .num { color: #ffd84d; }
+.columna-valoracion .valoraciones-jugadores .subtitulo { color: #ffd84d; }
+
+/* Tesorería: rojo si debe más de 2 cuotas, naranja si debe 1 o 2 */
+.lista-tesoreria-publica li.debe-mucho { background: #7f1d1d; }
+.lista-tesoreria-publica li.debe-poco { background: #7c3a00; }
+.lista-tesoreria-publica li.debe-mucho .nombre, .lista-tesoreria-publica li.debe-poco .nombre { color: #fff; }
+
+/* Goles: a favor en verde, en contra en rojo */
+.tile.a-favor .valor { color: var(--verde); }
+.tile.en-contra .valor { color: var(--rojo); }
+.tabla .goles-a-favor { color: var(--verde); font-weight: 700; }
+.tabla .goles-en-contra { color: var(--rojo); font-weight: 700; }
+
+/* Quién vino a cada jornada */
+.cuantos-conv { font-size: 0.8rem; white-space: nowrap; color: var(--texto-3); }
+.cuantos-conv.vinieron { color: var(--naranja); font-weight: 800; font-size: 1rem; }
+
+/* Título de la normativa */
+.titulo.naranja span {
+  background: var(--naranja); color: #000; border-left: 0;
+  padding: 2px 12px; border-radius: 8px;
+}
+.campo-imagen .subir-foto { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.campo-imagen .elegir-foto { font-size: 0.85rem; color: var(--texto-2); max-width: 100%; }
+.campo-imagen .elegir-foto::file-selector-button {
+  background: var(--naranja); color: #000; border: 0; border-radius: 8px;
+  padding: 7px 12px; font: inherit; font-weight: 700; cursor: pointer; margin-right: 8px;
+}
+.campo-imagen .previo { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borde); }

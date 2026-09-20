@@ -11,7 +11,7 @@ Web estática (HTML + CSS + JavaScript, sin instalaciones ni compilación) para 
   sale con nota sobre 10), calendario, clasificación y resultados.
 - **Tesorería**: cuotas y multas pendientes de cada jugador («Al día» si no debe nada).
 - **Roles del equipo**: cuerpo técnico, capitanes, junta directiva y miembros fundadores.
-- **Tercer tiempo**: quedadas, cumpleaños y fotos.
+- **Tercer tiempo**: quedadas, cumpleaños y fotos (se suben desde el móvil y se guardan en Drive).
 
 ## De dónde salen los datos
 

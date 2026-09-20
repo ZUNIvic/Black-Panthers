@@ -365,7 +365,7 @@ function desplegableConvocatoria(p, g, { abierto = false } = {}) {
   return h('details', { class: 'conv-desplegable', open: abierto },
     h('summary', {},
       h('span', { class: 'jornada-conv', text: etiquetaPartido(p) }),
-      h('span', { class: 'apagado', text: p.finalizado ? plural(g.convocados.length, 'vino', 'vinieron') : plural(cuantos, 'respuesta', 'respuestas') })),
+      h('span', { class: `cuantos-conv${p.finalizado ? ' vinieron' : ''}`, text: p.finalizado ? plural(g.convocados.length, 'vino', 'vinieron') : plural(cuantos, 'respuesta', 'respuestas') })),
     h('div', { class: 'convocatoria compacta' },
       g.deActa ? h('p', { class: 'apagado', text: 'Según el acta de CopaFácil' }) : null,
       listasConvocatoria(p, g)));
@@ -423,8 +423,8 @@ function pintarConvocatoriaProxima() {
     boton, pista, bloqueVotacion(p));
 }
 
-function tile({ valor, sufijo, etiqueta, detalle, destacado, extra }) {
-  return h('div', { class: `tile${destacado ? ' destacado' : ''}` },
+function tile({ valor, sufijo, etiqueta, detalle, destacado, extra, clase }) {
+  return h('div', { class: `tile${destacado ? ' destacado' : ''}${clase ? ` ${clase}` : ''}` },
     h('div', { class: 'valor' }, String(valor), sufijo ? h('small', { text: sufijo }) : null),
     h('div', { class: 'etiqueta-tile', text: etiqueta }),
     detalle ? h('div', { class: 'detalle', text: detalle }) : null,
@@ -447,8 +447,8 @@ function pintarEstadisticas() {
     tile({ valor: `${eq.pos}º`, sufijo: `de ${estado.cf.totalEquipos}`, etiqueta: 'Posición', detalle: estado.cf.liga.grupo, destacado: true }),
     tile({ valor: eq.pts, etiqueta: 'Puntos', detalle: `${eq.g} G · ${eq.e} E · ${eq.p} P`, extra: barra }),
     tile({ valor: eq.j, etiqueta: 'Partidos jugados' }),
-    tile({ valor: eq.gf, etiqueta: 'Goles a favor', detalle: porPartido(eq.gf) }),
-    tile({ valor: eq.gc, etiqueta: 'Goles en contra', detalle: porPartido(eq.gc) }),
+    tile({ valor: eq.gf, etiqueta: 'Goles a favor', detalle: porPartido(eq.gf), clase: 'a-favor' }),
+    tile({ valor: eq.gc, etiqueta: 'Goles en contra', detalle: porPartido(eq.gc), clase: 'en-contra' }),
     tile({ valor: eq.ta + eq.tr, etiqueta: 'Tarjetas', detalle: `${eq.ta} amarillas · ${eq.tr} rojas` }),
   ];
 
@@ -531,8 +531,9 @@ function pintarPlantilla() {
       celda(pj),
       celdaPorcentaje(ap.porJugador[j.id] || 0, ap.partidos, 'partidos'),
       h('td', { class: faltas ? 'falta-roja' : 'cero', text: faltas, title: faltas ? `Faltas de asistencia: no vino a ${faltas} ${faltas === 1 ? 'partido' : 'partidos'}` : null }),
+      h('td', { class: j.goles ? 'goles-a-favor' : 'cero', text: j.goles }),
       celdaPorcentaje(porJugador[j.id] || 0, sesiones, 'entrenos'),
-      celda(j.goles), celda(j.ta), celda(j.tr),
+      celda(j.ta), celda(j.tr),
       (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })());
   }));
 }
@@ -1068,7 +1069,8 @@ function pintarCompeticion() {
       h('td', { class: 'num', text: f.pos }),
       h('td', { class: 'izq' }, h('div', { class: 'equipo-celda' }, imagen(f.escudo), h('span', { text: f.nombre }))),
       h('td', { class: 'pts', text: f.pts }),
-      celda(f.j), celda(f.g), celda(f.e), celda(f.p), celda(f.gf), celda(f.gc),
+      celda(f.j), celda(f.g), celda(f.e), celda(f.p),
+      h('td', { class: 'goles-a-favor', text: f.gf }), h('td', { class: 'goles-en-contra', text: f.gc }),
       h('td', { text: f.dif > 0 ? `+${f.dif}` : f.dif }))));
 }
 
@@ -1392,8 +1394,9 @@ function pintarTesoreria() {
         : null,
     h('ul', { class: `lista-tesoreria-publica${editar ? ' editable' : ''}` }, lista.map((j) => {
       const v = valor(j);
-      const debe = v.cuotas || v.multas;
-      return h('li', { class: debe ? 'debe' : '' },
+      // Más de 2 cuotas, en rojo; 1 o 2, en naranja; al día, como siempre.
+      const clase = v.cuotas > 2 ? 'debe-mucho' : v.cuotas ? 'debe-poco' : v.multas ? 'debe' : '';
+      return h('li', { class: clase },
         imagen(j.foto),
         h('span', { class: 'nombre' },
           h('span', { class: 'dorsal-mini', text: j.dorsal ?? '' }), j.nombre,
@@ -2145,10 +2148,10 @@ const EDITORES_LISTA = {
   },
   fotos: {
     titulo: 'Fotos del grupo',
-    ayuda: 'Pega el enlace de Google Drive de cada foto, compartida con «cualquiera con el enlace».',
+    ayuda: 'Sube la foto desde el móvil con «Elegir foto», o pega el enlace de una que ya tengas en Drive.',
     campos: [
       { k: 'titulo', e: 'Título', t: 'texto', max: 60 },
-      { k: 'url', e: 'Enlace de la foto', t: 'texto', max: 300, placeholder: 'https://drive.google.com/…' },
+      { k: 'url', e: 'Foto', t: 'imagen', max: 300, placeholder: 'https://drive.google.com/… o sube una desde el móvil' },
       { k: 'fecha', e: 'Fecha', t: 'fecha' },
     ],
     nuevo: () => ({ titulo: '', url: '', fecha: hoyIso() }),
@@ -2157,6 +2160,45 @@ const EDITORES_LISTA = {
 
 let editorLista = null; // { tipo, filas: [] }
 
+/** Reduce la foto antes de mandarla: un móvil hace fotos de 5 MB y no hace falta tanto. */
+async function imagenComprimida(fichero, maxLado = 1400, calidad = 0.82) {
+  const bitmap = await createImageBitmap(fichero, { imageOrientation: 'from-image' });
+  const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
+  const lienzo = document.createElement('canvas');
+  lienzo.width = Math.max(1, Math.round(bitmap.width * escala));
+  lienzo.height = Math.max(1, Math.round(bitmap.height * escala));
+  lienzo.getContext('2d').drawImage(bitmap, 0, 0, lienzo.width, lienzo.height);
+  bitmap.close?.();
+  return lienzo.toDataURL('image/jpeg', calidad);
+}
+
+/** Sube la foto elegida a la carpeta de Drive del equipo y guarda su enlace. */
+async function subirFoto(entradaFichero, campoUrl) {
+  const fichero = entradaFichero.files?.[0];
+  if (!fichero) return;
+  if (!/^image\//.test(fichero.type)) return aviso('Eso no es una imagen', true);
+  const previo = entradaFichero.parentElement.querySelector('.previo');
+  entradaFichero.disabled = true;
+  aviso('Subiendo la foto…');
+  try {
+    const datos = await imagenComprimida(fichero);
+    const r = await enviarHoja(CONFIG.hoja, {
+      accion: 'subirFoto', pin: recuperar(CLAVE_PIN),
+      nombre: fichero.name, datos,
+    });
+    if (!r.ok) throw new Error(r.error || 'error');
+    campoUrl.value = r.url;
+    previo.src = r.url;
+    previo.hidden = false;
+    aviso('Foto subida ✓');
+  } catch (e) {
+    aviso(e.message === 'imagen_grande' ? 'La foto es demasiado grande' : 'No se ha podido subir la foto', true);
+  } finally {
+    entradaFichero.disabled = false;
+    entradaFichero.value = '';
+  }
+}
+
 function campoEditor(campo, valor) {
   const comun = { 'data-campo': campo.k, maxlength: campo.max, placeholder: campo.placeholder };
   let control;
@@ -2164,6 +2206,18 @@ function campoEditor(campo, valor) {
     control = h('select', comun,
       h('option', { value: '', text: '— Todo el equipo —' }),
       plantillaCompleta().map((x) => h('option', { value: x.nombreOriginal, text: `${x.dorsal ?? '–'} · ${x.nombre}` })));
+  } else if (campo.t === 'imagen') {
+    control = h('input', { type: 'text', ...comun });
+    control.value = valor ?? '';
+    return h('label', { class: 'campo campo-imagen' },
+      h('span', { text: campo.e }),
+      control,
+      h('div', { class: 'subir-foto' },
+        h('input', {
+          type: 'file', accept: 'image/*', class: 'elegir-foto',
+          onchange: (ev) => subirFoto(ev.target, control),
+        }),
+        h('img', { class: 'previo', alt: '', hidden: !urlSegura(valor), src: urlSegura(valor) || null })));
   } else if (campo.t === 'area') control = h('textarea', { rows: 3, ...comun });
   else if (campo.t === 'fecha') control = h('input', { type: 'date', ...comun });
   else if (campo.t === 'check') control = h('input', { type: 'checkbox', ...comun });

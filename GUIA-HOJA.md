@@ -147,17 +147,13 @@ así que no vale con mirar el código de la página.
 - **Actualizar** e **Importar desde CopaFácil** solo los ve el administrador. Da igual: la web trae los
   datos de CopaFácil sola al abrirla y cada vez que se vuelve a ella pasados unos minutos.
 
-### La pizarra de estrategia
+### Las fotos del tercer tiempo
 
-En **Competición → Estrategia** hay un campo de fútbol 7 para el próximo partido:
-
-- El **cuerpo técnico** (PIN del míster o el tuyo) toca a un jugador del banquillo para ponerlo en el
-  campo y lo arrastra donde quiera.
-- Al tocar a un jugador que ya está en el campo salen tres opciones: **flecha de ataque** (roja),
-  **flecha de defensa** (azul, discontinua) y **quitar del campo**. Después de elegir la flecha, se toca
-  en el campo dónde acaba. Para borrar una flecha, se toca encima.
-- **Guardar pizarra** la deja visible para todo el equipo. **Vaciar** la deja en blanco.
-- Los jugadores la ven, pero no la pueden tocar.
+En **Tercer tiempo → Editar fotos** puedes **subir la foto directamente desde el móvil** con «Elegir
+foto»: la web la reduce, la guarda en tu Drive (carpeta «Black Panthers — fotos de la web», compartida
+con «cualquiera con el enlace») y pone el enlace sola. También puedes pegar a mano el enlace de una foto
+que ya tengas. La primera vez hay que activarlo desde la hoja: **🐾 Black Panthers → Activar la subida de
+fotos** (Google pedirá permiso para tu Drive).
 
 ### El MVP a mano
 

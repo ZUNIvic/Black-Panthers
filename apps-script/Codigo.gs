@@ -130,6 +130,7 @@ function onOpen() {
     .addItem('Actualizar jugadores desde CopaFácil', 'actualizarJugadores')
     .addItem('🔒 Cambiar PIN (solo el propietario)', 'cambiarPinDesdeMenu')
     .addItem('Cargar la normativa interna', 'cargarNormativaInterna')
+    .addItem('Activar la subida de fotos', 'activarFotos')
     .addToUi();
 }
 
@@ -512,6 +513,7 @@ const ACCIONES = {
   ajustes: guardarAjustes_,
   cumples: guardarCumples_,
   cambiarPin: cambiarPin_,
+  subirFoto: subirFoto_,
   pines: verPines_,
   mvp: guardarMvp_,
   estrategia: guardarEstrategia_,
@@ -778,6 +780,51 @@ function borrarFilasDe_(hoja, partido) {
   for (let i = v.length - 1; i >= 0; i--) {
     if (texto_(v[i][0]) === partido) hoja.deleteRow(i + 2);
   }
+}
+
+/**
+ * Guarda en Drive una foto subida desde la web y devuelve su enlace.
+ * Van todas a una carpeta del equipo, compartidas con «cualquiera con el enlace».
+ */
+function subirFoto_(p) {
+  const datos = texto_(p.datos);
+  const corte = datos.indexOf('base64,');
+  const tipo = (datos.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,/) || [])[1];
+  if (!tipo || corte < 0) return { ok: false, error: 'imagen_no_valida' };
+  const base64 = datos.slice(corte + 7);
+  if (base64.length > 12 * 1024 * 1024) return { ok: false, error: 'imagen_grande' };
+
+  const limpio = texto_(p.nombre).replace(/[^\w .\-]+/g, '').slice(0, 80) || 'foto.jpg';
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64), tipo, limpio);
+  const fichero = carpetaFotos_().createFile(blob);
+  fichero.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { ok: true, url: 'https://drive.google.com/thumbnail?id=' + fichero.getId() + '&sz=w1200' };
+}
+
+/** La carpeta de Drive donde van las fotos de la web. Se crea la primera vez. */
+function carpetaFotos_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = texto_(props.getProperty('CARPETA_FOTOS'));
+  if (id) {
+    try {
+      return DriveApp.getFolderById(id);
+    } catch (e) {
+      // La carpeta ya no existe: se crea otra.
+    }
+  }
+  const carpeta = DriveApp.createFolder('Black Panthers — fotos de la web');
+  props.setProperty('CARPETA_FOTOS', carpeta.getId());
+  return carpeta;
+}
+
+/** Desde el menú: pide el permiso de Drive y deja la carpeta lista. */
+function activarFotos() {
+  const carpeta = carpetaFotos_();
+  SpreadsheetApp.getUi().alert(
+    'Fotos activadas ✅',
+    'Las fotos que subas desde la web se guardarán en tu Drive, en la carpeta «' + carpeta.getName() + '».',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 /** Pasar lista de un entreno: crea o actualiza la fila de esa fecha en ENTRENOS. */
