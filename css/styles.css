@@ -964,38 +964,43 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 .bloqueo form { width: min(100%, 300px); display: grid; gap: 10px; margin-top: 4px; }
 body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-inferior, body.bloqueada > .pie { display: none; }
 
-/* ───────── Competición: dos columnas con la pizarra ───────── */
-.columnas-comp { display: grid; gap: 14px; }
-@media (min-width: 900px) {
-  .columnas-comp { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
-  .columnas-comp > div > .bloque:first-child { margin-top: 0; }
-  .bloque-pizarra { margin-top: 0; }
-}
-
-/* ───────── Pizarra de estrategia ───────── */
-#pizarra { display: grid; gap: 10px; }
-.campo {
-  width: 100%; max-width: 360px; height: auto; aspect-ratio: 100 / 150; margin: 0 auto; display: block;
-  border-radius: 12px; border: 1px solid var(--borde); touch-action: none; background: #14532d;
-}
-.campo .pieza { cursor: grab; }
-.campo .pieza.elegida circle { stroke: #fff; stroke-width: 1.6; }
-.campo .flecha { cursor: pointer; }
-#pizarra-ayuda { text-align: center; margin: 0; }
-#pizarra-ayuda.activa { color: var(--naranja); font-weight: 700; }
-.menu-pieza {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: center;
-  background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 8px;
-}
-.menu-pieza strong { margin-right: 4px; }
-.menu-pieza .chip { cursor: pointer; }
-.menu-pieza .chip.ataque { border-color: #ef4444; color: #ffb1ab; }
-.menu-pieza .chip.defensa { border-color: #3b82f6; color: #b9d5ff; }
-.banquillo .chips .chip { cursor: pointer; }
-.banquillo .chips .chip[disabled] { cursor: default; opacity: 0.85; }
 .votacion .designado { font-weight: 700; margin: 8px 0 0; }
 .elegir-mvp { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: 700; flex-wrap: wrap; }
 .elegir-mvp select {
   flex: 1; min-width: 160px; background: var(--negro-oro); color: var(--oro); border: 0;
   border-radius: 8px; padding: 8px 10px; font: inherit; font-weight: 600;
 }
+
+/* ───────── Convocatoria plegable ───────── */
+.conv-desplegable {
+  background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio);
+  margin-top: 8px;
+}
+.conv-desplegable summary {
+  cursor: pointer; list-style: none; padding: 10px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.conv-desplegable summary::-webkit-details-marker { display: none; }
+.conv-desplegable summary::after { content: '+'; color: var(--naranja); font-size: 1.2rem; line-height: 1; }
+.conv-desplegable[open] summary::after { content: '–'; }
+.conv-desplegable .jornada-conv { font-weight: 700; }
+.conv-desplegable .convocatoria { padding: 0 12px 12px; }
+.conv-desplegable .apagado { font-size: 0.8rem; white-space: nowrap; }
+
+/* ───────── Roles con color ───────── */
+.rol.cuerpo-tecnico { background: var(--naranja); border-color: #b34b00; color: #000; }
+.rol.cuerpo-tecnico h3, .rol.cuerpo-tecnico .nombre-rol, .rol.cuerpo-tecnico .cargo,
+.rol.cuerpo-tecnico .entrenadores li, .rol.cuerpo-tecnico .entrenadores .num { color: #000; }
+.rol.cuerpo-tecnico .foto-rol, .rol.cuerpo-tecnico .persona .foto-vacia { border-color: #000; }
+.rol.cuerpo-tecnico .entrenadores { border-left-color: rgba(0, 0, 0, 0.35); }
+
+.rol.capitanes { background: #1d4ed8; border-color: #0b2a80; color: #fff; }
+.rol.capitanes h3 { color: #cfe0ff; }
+.rol.capitanes .nombre-rol { color: #fff; }
+.rol.capitanes .cargo { color: #ffd84d; }
+.rol.capitanes .foto-rol, .rol.capitanes .persona .foto-vacia { border-color: #fff; }
+
+.rol.fundadores { background: var(--oro); border-color: var(--oro-borde); color: #000; }
+.rol.fundadores h3, .rol.fundadores .nombre-rol { color: #000; }
+.rol.fundadores .cargo { color: var(--naranja-oro); }
+.rol.fundadores .foto-rol, .rol.fundadores .persona .foto-vacia { border-color: #000; }
