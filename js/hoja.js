@@ -24,12 +24,19 @@ async function aJson(respuesta) {
  */
 export async function leerHoja(url, pinEquipo = '') {
   const datos = await enviarHoja(url, { accion: 'datos', pinEquipo });
-  if (!datos.ok) {
-    const e = new Error(datos.error === 'pin_equipo' ? 'Hace falta el PIN del equipo' : 'La hoja devolvió un error');
-    e.codigo = datos.error;
+  if (datos.ok) return datos;
+  if (datos.error === 'pin_equipo') {
+    const e = new Error('Hace falta el PIN del equipo');
+    e.codigo = 'pin_equipo';
     throw e;
   }
-  return datos;
+  // Script todavía sin actualizar: no conoce la acción "datos". Se lee como antes.
+  const ctrl = new AbortController();
+  const r = await conTiempo(fetch(url, { cache: 'no-store', signal: ctrl.signal }), 20000, ctrl);
+  if (!r.ok) throw new Error(`La hoja respondió ${r.status}`);
+  const viejos = await aJson(r);
+  if (!viejos.ok) throw new Error('La hoja devolvió un error');
+  return viejos;
 }
 
 /** Envía una acción del staff. El cuerpo va como texto para evitar la comprobación CORS previa. */
