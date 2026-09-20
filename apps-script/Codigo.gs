@@ -3,7 +3,7 @@
  *
  * Hace dos cosas:
  *  1. Entrega a la web SOLO los datos marcados como "Mostrar" (la hoja sigue siendo privada).
- *  2. Guarda lo que el staff edita desde la web. Hay dos PIN, guardados cifrados fuera de la hoja:
+ *  2. Guarda lo que el staff edita desde la web. Hay tres PIN, guardados fuera de la hoja:
  *     - PIN del míster: convocatorias y comentarios de los partidos.
  *     - PIN del tesorero: cuotas y multas.
  *     - PIN de administrador (el propietario): todo, incluidos los tres PIN.
@@ -1071,7 +1071,7 @@ function prepararHoja() {
     avisos.push(titulo + ': ' + pin);
   });
   SpreadsheetApp.getUi().alert(
-    'Hoja preparada ✅' + (avisos.length ? '\n\n' + avisos.join('\n') + '\n\nApúntalos: no se pueden volver a ver, solo cambiar.' : '')
+    'Hoja preparada ✅' + (avisos.length ? '\n\n' + avisos.join('\n') + '\n\nApúntalos. Con el de administrador puedes consultar los tres desde la web.' : '')
   );
 }
 
