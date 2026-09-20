@@ -1395,6 +1395,7 @@ function pintarTesoreria() {
     h('ul', { class: `lista-tesoreria-publica${editar ? ' editable' : ''}` }, lista.map((j) => {
       const v = valor(j);
       // Más de 2 cuotas, en rojo; 1 o 2, en naranja; al día, como siempre.
+      const debe = v.cuotas || v.multas;
       const clase = v.cuotas > 2 ? 'debe-mucho' : v.cuotas ? 'debe-poco' : v.multas ? 'debe' : '';
       return h('li', { class: clase },
         imagen(j.foto),
@@ -1534,29 +1535,38 @@ function pintarFotos() {
 
 /* ───────────────────────── Pintado general ───────────────────────── */
 
+/** Pinta un apartado sin que un fallo suyo tumbe el resto de la web. */
+function aSalvo(nombre, tarea) {
+  try {
+    tarea();
+  } catch (e) {
+    console.error(`Fallo al pintar ${nombre}`, e);
+  }
+}
+
 function pintarTodo() {
-  pintarBotonStaff();
-  pintarHerramientas();
-  pintarBloquePinEquipo();
-  pintarHero();
-  pintarAnuncios();
-  pintarProximoPartido();
-  pintarProximoEntreno();
-  pintarConvocatoriaProxima();
-  pintarEstadisticas();
-  pintarPlantilla();
-  pintarLesionados();
-  pintarValoraciones('mejorar');
-  pintarValoraciones('fuertes');
-  pintarMensajeTecnico();
-  pintarComentarios();
-  pintarNormativa();
-  pintarCompeticion();
-  pintarQuedadas();
-  pintarCumples();
-  pintarRoles();
-  pintarTesoreria();
-  pintarFotos();
+  aSalvo('pintarBotonStaff', () => pintarBotonStaff());
+  aSalvo('pintarHerramientas', () => pintarHerramientas());
+  aSalvo('pintarBloquePinEquipo', () => pintarBloquePinEquipo());
+  aSalvo('pintarHero', () => pintarHero());
+  aSalvo('pintarAnuncios', () => pintarAnuncios());
+  aSalvo('pintarProximoPartido', () => pintarProximoPartido());
+  aSalvo('pintarProximoEntreno', () => pintarProximoEntreno());
+  aSalvo('pintarConvocatoriaProxima', () => pintarConvocatoriaProxima());
+  aSalvo('pintarEstadisticas', () => pintarEstadisticas());
+  aSalvo('pintarPlantilla', () => pintarPlantilla());
+  aSalvo('pintarLesionados', () => pintarLesionados());
+  aSalvo('pintarValoraciones', () => pintarValoraciones('mejorar'));
+  aSalvo('pintarValoraciones', () => pintarValoraciones('fuertes'));
+  aSalvo('pintarMensajeTecnico', () => pintarMensajeTecnico());
+  aSalvo('pintarComentarios', () => pintarComentarios());
+  aSalvo('pintarNormativa', () => pintarNormativa());
+  aSalvo('pintarCompeticion', () => pintarCompeticion());
+  aSalvo('pintarQuedadas', () => pintarQuedadas());
+  aSalvo('pintarCumples', () => pintarCumples());
+  aSalvo('pintarRoles', () => pintarRoles());
+  aSalvo('pintarTesoreria', () => pintarTesoreria());
+  aSalvo('pintarFotos', () => pintarFotos());
 
   const partes = [];
   if (estado.cf) partes.push(`CopaFácil: ${horaActualizacion(estado.cf.actualizado)}`);
@@ -1596,7 +1606,7 @@ async function cargarHoja() {
     estado.bloqueada = false;
     guardar(CLAVE_HOJA, estado.hoja);
   } catch (e) {
-    console.error(e);
+    if (e.codigo !== 'pin_equipo') console.error(e);
     estado.errorHoja = e;
     if (e.codigo === 'pin_equipo') {
       borrar(CLAVE_EQUIPO);
@@ -2447,12 +2457,12 @@ function iniciar() {
   estado.nivel = ['admin', 'tesoreria'].includes(recuperar(CLAVE_NIVEL)) ? recuperar(CLAVE_NIVEL) : 'staff';
   estado.gestion = modoGestion();
   mostrarVista(false);
-  pintarTodo();
 
   window.addEventListener('hashchange', () => mostrarVista(true));
   document.querySelectorAll('[data-actualizar]').forEach((b) => b.addEventListener('click', () => actualizar({ manual: true })));
   $('#form-equipo').addEventListener('submit', entrarConPinEquipo);
   prepararStaff();
+  aSalvo('la web', pintarTodo);
 
   // Al volver a la pestaña tras un rato, se refresca solo.
   document.addEventListener('visibilitychange', () => {
