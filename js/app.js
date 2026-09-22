@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=6';
-import { cargarCopaFacil } from './copafacil.js?v=6';
-import { leerHoja, enviarHoja } from './hoja.js?v=6';
+import { CONFIG } from './config.js?v=7';
+import { cargarCopaFacil } from './copafacil.js?v=7';
+import { leerHoja, enviarHoja } from './hoja.js?v=7';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -361,7 +361,21 @@ function chipJugador(id, tipo = 'si') {
 }
 
 /** Las tres listas de un partido: convocados (naranja), no vienen (rojo) y no convocados (gris). */
-/** El Voy / No voy del próximo partido, arriba del todo en Competición. */
+/**
+ * Qué se le pregunta a cada uno: si el cuerpo técnico ya ha hecho la lista y
+ * está convocado, se le pide confirmar; si no, si piensa ir.
+ */
+function etiquetasVoy(p) {
+  const yo = yoSoy();
+  const g = gruposConvocatoria(p);
+  const convocado = Boolean(yo && g && !g.deActa && g.convocados.includes(yo.id));
+  const cual = p.jornada ? `la jornada ${p.jornada}` : 'el partido';
+  return convocado
+    ? { convocado: true, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'No confirmar' }
+    : { convocado: false, pregunta: p.jornada ? `¿Vas a ${cual}?` : '¿Vas al partido?', si: 'Voy', no: 'No voy' };
+}
+
+/** El Voy / No voy (o Confirmar) del próximo partido, arriba del todo en Competición. */
 function pintarVoyRapido() {
   const caja = $('#voy-rapido');
   const p = proximoPartido();
@@ -369,11 +383,12 @@ function pintarVoyRapido() {
   caja.hidden = !(p && yo && hayHoja() && estado.hoja);
   if (caja.hidden) return;
   const mio = (estado.hoja.prelista?.[p.id] || []).find((x) => x.id === yo.id);
+  const e = etiquetasVoy(p);
   pintar(caja,
-    h('span', { class: 'pregunta-voy', text: p.jornada ? `¿Vas a la jornada ${p.jornada}?` : '¿Vas al partido?' }),
+    h('span', { class: 'pregunta-voy', text: e.pregunta }),
     h('span', { class: 'botones-voy' },
-      h('button', { type: 'button', class: `chip-voy${mio?.dice === 'voy' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'voy' ? 'quitar' : 'voy') }, '✓ Voy'),
-      h('button', { type: 'button', class: `chip-voy no${mio?.dice === 'no' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'no' ? 'quitar' : 'no') }, '✗ No voy')));
+      h('button', { type: 'button', class: `chip-voy${mio?.dice === 'voy' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'voy' ? 'quitar' : 'voy') }, `✓ ${e.si}`),
+      h('button', { type: 'button', class: `chip-voy no${mio?.dice === 'no' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'no' ? 'quitar' : 'no') }, `✗ ${e.no}`)));
 }
 
 /** Prelista: la hacen los jugadores diciendo si van o no. La ve todo el equipo. */
@@ -386,8 +401,10 @@ function bloquePrelista(p) {
   const mio = yo && lista.find((x) => x.id === yo.id);
 
   const apuntar = (dice) => guardarPrelista(p, dice === mio?.dice ? 'quitar' : dice);
+  const e = etiquetasVoy(p);
   return h('div', { class: 'prelista' },
-    h('h3', { class: 'subtitulo' }, 'Prelista', h('small', { text: ' · quién dice que va, por orden' })),
+    h('h3', { class: 'subtitulo' }, e.convocado ? 'Confirmaciones' : 'Prelista',
+      h('small', { text: e.convocado ? ' · quién ha confirmado, por orden' : ' · quién dice que va, por orden' })),
     van.length
       ? h('ol', { class: 'chips numerada' }, van.map((x) => {
           const j = jugadorPorId(x.id);
@@ -405,9 +422,9 @@ function bloquePrelista(p) {
     yo
       ? h('div', { class: 'fila-acciones' },
           h('button', { type: 'button', class: `boton${mio?.dice === 'voy' ? '' : '-secundario'}`, onclick: () => apuntar('voy') },
-            mio?.dice === 'voy' ? '✓ Voy' : 'Voy'),
+            mio?.dice === 'voy' ? `✓ ${e.si}` : e.si),
           h('button', { type: 'button', class: `boton${mio?.dice === 'no' ? '' : '-secundario'}`, onclick: () => apuntar('no') },
-            mio?.dice === 'no' ? '✗ No voy' : 'No voy'))
+            mio?.dice === 'no' ? `✗ ${e.no}` : e.no))
       : h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' }));
 }
 
