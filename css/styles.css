@@ -1062,14 +1062,24 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   color: var(--texto); padding: 11px; font: inherit; margin-top: 6px;
 }
 
-/* Voy / No voy, junto al título de Competición */
-.voy-rapido { display: grid; gap: 5px; justify-items: end; margin-left: auto; }
-.pregunta-voy { font-size: 0.75rem; font-weight: 700; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.04em; }
-.botones-voy { display: flex; gap: 6px; }
-.chip-voy {
-  cursor: pointer; font-weight: 800; font-size: 0.85rem; padding: 8px 12px; border-radius: 999px;
-  background: var(--panel-2); color: var(--texto-2); border: 1px solid var(--borde); min-height: 40px;
+/* Voy / No voy: recuadro naranja junto al título de Competición */
+.voy-rapido {
+  display: grid; gap: 8px; margin-left: auto; flex: 1 1 260px; max-width: 340px;
+  background: var(--naranja); border: 2px solid #8f3c00; border-radius: 14px; padding: 10px 12px;
+  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.3);
 }
-.chip-voy:hover { border-color: var(--naranja); color: var(--texto); }
-.chip-voy.puesto { background: var(--verde); border-color: var(--verde); color: #05210f; }
-.chip-voy.no.puesto { background: var(--rojo); border-color: var(--rojo); color: #2b0603; }
+.pregunta-voy {
+  font-size: 0.95rem; font-weight: 800; color: #000; text-align: center;
+  text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.1;
+}
+.botones-voy { display: flex; gap: 8px; }
+.chip-voy {
+  flex: 1; cursor: pointer; font-weight: 800; font-size: 1rem; padding: 10px 8px; border-radius: 10px;
+  background: #000; color: #fff; border: 2px solid #000; min-height: 46px;
+}
+.chip-voy:hover { background: #1a1a1a; }
+.chip-voy.puesto { background: var(--verde); border-color: #05210f; color: #05210f; }
+.chip-voy.no.puesto { background: var(--rojo); border-color: #2b0603; color: #fff; }
+@media (max-width: 599px) {
+  .voy-rapido { max-width: none; width: 100%; }
+}
