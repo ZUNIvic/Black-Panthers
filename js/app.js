@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=10';
-import { cargarCopaFacil } from './copafacil.js?v=10';
-import { leerHoja, enviarHoja } from './hoja.js?v=10';
+import { CONFIG } from './config.js?v=11';
+import { cargarCopaFacil } from './copafacil.js?v=11';
+import { leerHoja, enviarHoja } from './hoja.js?v=11';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -377,7 +377,7 @@ function etiquetasVoy(p) {
     ? g.convocados.filter((id) => lista.some((x) => x.id === id && x.dice === 'no')).length
     : 0;
 
-  if (convocado) return { convocado: true, hayLista, bajas, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'No confirmar' };
+  if (convocado) return { convocado: true, hayLista, bajas, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'Darse de baja' };
   if (!hayLista) return { convocado: false, hayLista, bajas, pregunta: `¿Vas a ${cual}?`, si: 'Voy', no: 'No voy' };
   // No convocado: solo puede ofrecerse si alguien se ha caído.
   return {
@@ -409,16 +409,21 @@ function pintarVoyRapido() {
 
   // Una vez ha contestado, fuera el recuadro: solo queda lo que eligió.
   if (mio) {
-    const dicho = mio.dice === 'voy'
+    const va = mio.dice === 'voy';
+    const dicho = va
       ? (e.convocado ? 'Confirmado' : 'Vas al partido')
-      : (e.convocado ? 'No confirmado' : 'No vas al partido');
-    const aclara = e.suplente && mio.dice === 'voy' ? `${e.aclaracion} · toca para cambiar` : 'Toca para cambiar';
+      : (e.hayLista ? 'De baja' : 'No vas al partido');
+    // Debajo, en pequeño, la opción contraria: darse de baja o volver a apuntarse.
+    const contraria = va
+      ? { dice: 'no', texto: e.hayLista ? 'Darse de baja' : 'No voy' }
+      : { dice: 'voy', texto: e.convocado ? 'Vuelvo a estar disponible' : 'Voy' };
     return pintar(caja,
+      h('span', { class: 'estado-voy', text: `${va ? '✓' : '✗'} ${dicho}` }),
       h('button', {
-        type: 'button', class: 'estado-voy', title: 'Toca para cambiar de respuesta',
-        onclick: () => guardarPrelista(p, 'quitar'),
-      }, `${mio.dice === 'voy' ? '✓' : '✗'} ${dicho}`),
-      h('span', { class: 'cambiar-voy', text: aclara }));
+        type: 'button', class: `secundaria-voy ${contraria.dice}`,
+        onclick: () => guardarPrelista(p, contraria.dice),
+      }, contraria.texto),
+      e.suplente && va ? h('span', { class: 'cambiar-voy', text: e.aclaracion }) : null);
   }
 
   pintar(caja,

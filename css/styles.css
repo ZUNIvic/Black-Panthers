@@ -1102,3 +1102,10 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 }
 .voy-rapido.cerrado .pregunta-voy { color: var(--texto-2); font-size: 0.85rem; }
 .aclara-voy { font-size: 0.75rem; font-weight: 700; color: #000; text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
+.voy-rapido .secundaria-voy {
+  cursor: pointer; background: transparent; border: 0; padding: 4px 8px; min-height: 0;
+  font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; text-decoration: underline;
+}
+.voy-rapido .secundaria-voy.no { color: var(--rojo); }
+.voy-rapido .secundaria-voy.voy { color: var(--verde); }
+.voy-rapido .secundaria-voy:hover { text-decoration: none; }
