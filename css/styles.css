@@ -1101,3 +1101,4 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   background: var(--panel-2); border: 1px solid var(--borde); box-shadow: none; justify-items: center; gap: 2px;
 }
 .voy-rapido.cerrado .pregunta-voy { color: var(--texto-2); font-size: 0.85rem; }
+.aclara-voy { font-size: 0.75rem; font-weight: 700; color: #000; text-align: center; text-transform: uppercase; letter-spacing: 0.02em; }
