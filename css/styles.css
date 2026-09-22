@@ -1044,3 +1044,20 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   padding: 7px 12px; font: inherit; font-weight: 700; cursor: pointer; margin-right: 8px;
 }
 .campo-imagen .previo { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borde); }
+
+/* ───────── Prelista y quién entra ───────── */
+.prelista { margin-bottom: 14px; }
+.prelista .subtitulo small { font-family: var(--cuerpo); font-size: 0.75rem; text-transform: none; letter-spacing: 0; color: var(--texto-3); font-weight: 500; }
+.chips.numerada { counter-reset: apuntado; }
+.chips.numerada li { display: flex; align-items: center; gap: 4px; }
+.chips.numerada li::before {
+  counter-increment: apuntado; content: counter(apuntado) '.';
+  color: var(--texto-3); font-size: 0.78rem; font-weight: 700; min-width: 14px; text-align: right;
+}
+.prelista .fila-acciones { margin-top: 10px; }
+.prelista .boton, .prelista .boton-secundario { min-width: 110px; }
+.tabla tr.sin-entrar td { color: var(--texto-3); }
+#bloqueo select {
+  width: 100%; background: var(--negro); border: 1px solid var(--borde); border-radius: 10px;
+  color: var(--texto); padding: 11px; font: inherit; margin-top: 6px;
+}

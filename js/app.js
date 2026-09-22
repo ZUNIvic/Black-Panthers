@@ -39,6 +39,7 @@ const ICONOS = {
   album: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg>',
   pin: '<svg viewBox="0 0 24 24"><path d="M12 17v4M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg>',
   estrella: '<svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12Z"/><path d="M9.2 9.4c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.6 1.4c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6.3.5.8 1.1 1.5 1.5.3.2.5.2.7 0l.5-.5c.2-.2.4-.2.6-.1l1.3.7c.4.2.4.4.4.6 0 .5-.4 1.1-1 1.3-.8.3-1.9 0-3.2-.8-1.3-.9-2.2-2-2.7-3-.4-.9-.3-1.7.1-2.3Z"/></svg>',
 };
 
 function icono(nombre) {
@@ -145,6 +146,7 @@ const esStaff = () => estado.staff && hayHoja();
 const PERMISOS = {
   convocar: ['staff'], comentar: ['staff'], tesoreria: ['tesoreria'],
   mvp: ['staff'], // el MVP elegido a mano
+  entradas: ['staff'], // quién entra en la web
   mensajeTecnico: ['staff'], // las instrucciones del cuerpo técnico
   pinStaff: ['staff'],        // el míster cambia su propio PIN
   pinTesoreria: ['tesoreria'], // el tesorero, el suyo
@@ -359,6 +361,71 @@ function chipJugador(id, tipo = 'si') {
 }
 
 /** Las tres listas de un partido: convocados (naranja), no vienen (rojo) y no convocados (gris). */
+/** Prelista: la hacen los jugadores diciendo si van o no. La ve todo el equipo. */
+function bloquePrelista(p) {
+  if (!p || p.finalizado || !hayHoja()) return null;
+  const lista = estado.hoja?.prelista?.[p.id] || [];
+  const van = lista.filter((x) => x.dice === 'voy' && jugadorPorId(x.id));
+  const no = lista.filter((x) => x.dice === 'no' && jugadorPorId(x.id));
+  const yo = yoSoy();
+  const mio = yo && lista.find((x) => x.id === yo.id);
+
+  const apuntar = (dice) => guardarPrelista(p, dice === mio?.dice ? 'quitar' : dice);
+  return h('div', { class: 'prelista' },
+    h('h3', { class: 'subtitulo' }, 'Prelista', h('small', { text: ' · quién dice que va, por orden' })),
+    van.length
+      ? h('ol', { class: 'chips numerada' }, van.map((x) => {
+          const j = jugadorPorId(x.id);
+          return h('li', {}, h('span', { class: 'chip' },
+            h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
+        }))
+      : h('p', { class: 'apagado', text: 'Todavía no se ha apuntado nadie.' }),
+    no.length
+      ? h('ul', { class: 'chips' }, no.map((x) => {
+          const j = jugadorPorId(x.id);
+          return h('li', {}, h('span', { class: 'chip no' },
+            h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
+        }))
+      : null,
+    yo
+      ? h('div', { class: 'fila-acciones' },
+          h('button', { type: 'button', class: `boton${mio?.dice === 'voy' ? '' : '-secundario'}`, onclick: () => apuntar('voy') },
+            mio?.dice === 'voy' ? '✓ Voy' : 'Voy'),
+          h('button', { type: 'button', class: `boton${mio?.dice === 'no' ? '' : '-secundario'}`, onclick: () => apuntar('no') },
+            mio?.dice === 'no' ? '✗ No voy' : 'No voy'))
+      : h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' }));
+}
+
+async function guardarPrelista(p, dice) {
+  const yo = yoSoy();
+  if (!yo) return;
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'apuntarse', pinEquipo: recuperar(CLAVE_EQUIPO) || '',
+    partidoId: p.id, fecha: p.fecha ? isoDe(p.fecha) : '', rival: rivalDe(p).nombre,
+    jugadorId: yo.id, dice,
+  }).catch(() => null);
+  if (r?.ok) {
+    aviso(dice === 'quitar' ? 'Te has borrado de la prelista' : dice === 'voy' ? '¡Apuntado! ✓' : 'Apuntado como que no vas');
+    cargarHoja();
+  } else {
+    aviso('No se ha podido guardar. Inténtalo de nuevo.', true);
+  }
+}
+
+/** Un botón que abre WhatsApp con el aviso del partido ya escrito. */
+function avisoWhatsApp(p) {
+  if (!p || p.finalizado || !permitido('convocar')) return null;
+  const cuando = p.fecha ? `${diaPartido(p.fecha)} a las ${horaPartido(p.fecha)}` : 'fecha por confirmar';
+  const donde = p.lugar?.nombre ? ` en ${p.lugar.nombre}` : '';
+  const texto = `🐾 Black Panthers — ${p.jornada ? `Jornada ${p.jornada}` : 'Partido'} vs ${rivalDe(p).nombre}\n`
+    + `📅 ${cuando}${donde}\n\n`
+    + `Apúntate en la web: ${location.origin}${location.pathname}`;
+  return h('a', {
+    class: 'boton-secundario', target: '_blank', rel: 'noopener',
+    href: `https://wa.me/?text=${encodeURIComponent(texto)}`,
+  }, icono('whatsapp'), 'Avisar por WhatsApp');
+}
+
 /** La lista de convocados, dentro de un desplegable con la jornada. */
 function desplegableConvocatoria(p, g, { abierto = false } = {}) {
   const cuantos = p.finalizado ? g.convocados.length : g.convocados.length + g.noVienen.length;
@@ -416,11 +483,14 @@ function pintarConvocatoriaProxima() {
   const pista = !permitido('convocar')
     ? h('p', { class: 'pista-staff', text: 'Para editarla: botón «Staff» (candado, arriba a la derecha) con el PIN del míster.' })
     : null;
-  if (!g) return pintar(caja, h('div', { class: 'convocatoria' }, vacio('Aún no hay convocatoria para este partido.'), boton, pista), bloqueVotacion(p));
   pintar(caja,
-    desplegableConvocatoria(p, g, { abierto: true }),
-    g.deActa ? h('p', { class: 'apagado', text: 'Sin convocatoria del staff: se muestra la alineación del acta de CopaFácil.' }) : null,
-    boton, pista, bloqueVotacion(p));
+    bloquePrelista(p),
+    h('h3', { class: 'subtitulo', text: 'Lista definitiva del cuerpo técnico' }),
+    g
+      ? [desplegableConvocatoria(p, g, { abierto: true }),
+         g.deActa ? h('p', { class: 'apagado', text: 'Sin convocatoria del staff: se muestra la alineación del acta de CopaFácil.' }) : null]
+      : vacio('El cuerpo técnico todavía no ha hecho la lista.'),
+    boton, avisoWhatsApp(p), pista, bloqueVotacion(p));
 }
 
 function tile({ valor, sufijo, etiqueta, detalle, destacado, extra, clase }) {
@@ -1435,6 +1505,46 @@ function bloquePin(cual) {
       esAdmin() ? h('button', { type: 'button', class: 'boton-secundario', onclick: verPines }, 'Ver los PIN') : null));
 }
 
+function pintarEntradas() {
+  const bloque = $('#bloque-entradas');
+  bloque.hidden = !permitido('entradas');
+  if (bloque.hidden) return;
+  const caja = $('#entradas');
+  if (!estado.entradas) {
+    pintar(caja,
+      h('p', { class: 'apagado', text: 'Cuántas veces ha abierto la web cada jugador desde que se identificó.' }),
+      h('button', { type: 'button', class: 'boton-secundario', onclick: cargarEntradas }, 'Ver quién entra'));
+    return;
+  }
+  const lista = [...estado.entradas].sort((a, b) => b.semana - a.semana || b.total - a.total);
+  pintar(caja,
+    h('div', { class: 'tabla-scroll' },
+      h('table', { class: 'tabla' },
+        h('thead', {}, h('tr', {},
+          h('th', { class: 'izq', text: 'Jugador' }),
+          h('th', { text: 'Últimos 7 días' }),
+          h('th', { text: 'Total' }),
+          h('th', { class: 'izq', text: 'Última vez' }))),
+        h('tbody', {}, lista.map((e) => h('tr', { class: e.total ? '' : 'sin-entrar' },
+          h('td', { class: 'izq', text: e.nombre + (e.activo ? '' : ' (no activo)') }),
+          h('td', { class: e.semana ? 'goles-a-favor' : 'cero', text: e.semana }),
+          h('td', { text: e.total }),
+          h('td', { class: 'izq apagado', text: e.ultima ? diaHoja(e.ultima.slice(0, 10), { day: 'numeric', month: 'short' }) + ' · ' + e.ultima.slice(11) : 'nunca' })))))),
+    h('button', { type: 'button', class: 'boton-secundario', onclick: cargarEntradas }, 'Actualizar'));
+}
+
+async function cargarEntradas() {
+  if (!permitido('entradas')) return;
+  try {
+    const r = await enviarHoja(CONFIG.hoja, { accion: 'entradas', pin: recuperar(CLAVE_PIN) });
+    if (!r.ok) return aviso('No se ha podido leer quién entra', true);
+    estado.entradas = r.jugadores;
+    pintarEntradas();
+  } catch {
+    aviso('Sin conexión con la hoja', true);
+  }
+}
+
 function pintarBloquePinEquipo() {
   pintar($('#pin-equipo'), bloquePin('staff'));
 }
@@ -1548,6 +1658,7 @@ function pintarTodo() {
   aSalvo('pintarBotonStaff', () => pintarBotonStaff());
   aSalvo('pintarHerramientas', () => pintarHerramientas());
   aSalvo('pintarBloquePinEquipo', () => pintarBloquePinEquipo());
+  aSalvo('pintarEntradas', () => pintarEntradas());
   aSalvo('pintarHero', () => pintarHero());
   aSalvo('pintarAnuncios', () => pintarAnuncios());
   aSalvo('pintarProximoPartido', () => pintarProximoPartido());
@@ -1615,17 +1726,60 @@ async function cargarHoja() {
       estado.bloqueada = true;
     }
   }
-  bloquear(estado.bloqueada);
+  bloquear(pasoCandado());
   pintarTodo();
 }
 
 /* ───────────────────────── PIN del equipo ───────────────────────── */
 
-/** Con PIN del equipo, la web no enseña nada hasta que se escribe. */
-function bloquear(si) {
-  $('#bloqueo').hidden = !si;
-  document.body.classList.toggle('bloqueada', Boolean(si));
-  if (si) setTimeout(() => $('#pin-equipo-entrada').focus(), 50);
+/**
+ * El candado tiene dos pasos: el PIN del equipo y decir quién eres.
+ * Lo segundo es para que el cuerpo técnico sepa quién entra y para votar y apuntarse.
+ */
+function bloquear(paso) {
+  const bloqueo = $('#bloqueo');
+  bloqueo.hidden = !paso;
+  document.body.classList.toggle('bloqueada', Boolean(paso));
+  if (!paso) return;
+  const esPin = paso === 'pin';
+  $('#form-equipo').hidden = !esPin;
+  $('#form-quien').hidden = esPin;
+  $('#bloqueo-titulo').textContent = esPin ? 'Zona del equipo' : '¿Quién eres?';
+  $('#bloqueo-texto').textContent = esPin
+    ? 'Esta web es solo para el Black Panthers F.C. Escribe el PIN del equipo para entrar.'
+    : 'Solo se pregunta una vez en cada móvil. Sirve para votar al MVP y para apuntarte a los partidos.';
+  $('#bloqueo-pista').textContent = esPin ? '¿No lo tienes? Pídeselo al cuerpo técnico.' : '';
+  if (esPin) return setTimeout(() => $('#pin-equipo-entrada').focus(), 50);
+  const selector = $('#quien-soy');
+  pintar(selector,
+    h('option', { value: '', text: '— Elige tu nombre —' }),
+    jugadores().map((j) => h('option', { value: j.id, text: `${j.dorsal ?? '–'} · ${j.nombre}` })),
+    h('option', { value: 'otro', text: 'Cuerpo técnico u otro' }));
+}
+
+/** Qué paso del candado toca: ninguno, el PIN o decir quién eres. */
+function pasoCandado() {
+  if (estado.bloqueada) return 'pin';
+  if (!hayHoja() || !estado.hoja) return null;
+  return recuperar(CLAVE_YO) ? null : 'quien';
+}
+
+function decirQuienSoy(ev) {
+  ev.preventDefault();
+  const id = $('#quien-soy').value;
+  if (!id) return;
+  guardar(CLAVE_YO, id);
+  bloquear(null);
+  apuntarEntrada();
+  pintarTodo();
+}
+
+/** Deja constancia de que este jugador ha abierto la web (la hoja agrupa por media hora). */
+function apuntarEntrada() {
+  const id = recuperar(CLAVE_YO);
+  if (!hayHoja() || !id || id === 'otro') return;
+  enviarHoja(CONFIG.hoja, { accion: 'entrada', pinEquipo: recuperar(CLAVE_EQUIPO) || '', jugadorId: id })
+    .catch(() => { /* si falla, no pasa nada: es solo un contador */ });
 }
 
 async function entrarConPinEquipo(ev) {
@@ -1644,7 +1798,8 @@ async function entrarConPinEquipo(ev) {
     guardar(CLAVE_HOJA, datos);
     entrada.value = '';
     error.textContent = '';
-    bloquear(false);
+    bloquear(pasoCandado());
+    apuntarEntrada();
     pintarTodo();
   } catch (e) {
     error.textContent = e.codigo === 'pin_equipo' ? 'PIN incorrecto.' : 'No se ha podido conectar con la hoja.';
@@ -2461,8 +2616,10 @@ function iniciar() {
   window.addEventListener('hashchange', () => mostrarVista(true));
   document.querySelectorAll('[data-actualizar]').forEach((b) => b.addEventListener('click', () => actualizar({ manual: true })));
   $('#form-equipo').addEventListener('submit', entrarConPinEquipo);
+  $('#form-quien').addEventListener('submit', decirQuienSoy);
   prepararStaff();
   aSalvo('la web', pintarTodo);
+  apuntarEntrada();
 
   // Al volver a la pestaña tras un rato, se refresca solo.
   document.addEventListener('visibilitychange', () => {

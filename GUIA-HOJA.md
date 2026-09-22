@@ -147,6 +147,33 @@ así que no vale con mirar el código de la página.
 - **Actualizar** e **Importar desde CopaFácil** solo los ve el administrador. Da igual: la web trae los
   datos de CopaFácil sola al abrirla y cada vez que se vuelve a ella pasados unos minutos.
 
+### Quién entra en la web
+
+Al entrar, después del PIN, cada uno **elige su nombre** una vez en su móvil. Con eso:
+
+- En **Equipo → Quién entra en la web** (solo lo ves tú y el cuerpo técnico) sale la lista de **todos**
+  los jugadores con las entradas de los **últimos 7 días**, el **total** y la **última vez**. Los que no
+  han entrado nunca salen con «nunca», que es justo lo que querías saber.
+- Se apunta como mucho una entrada por jugador cada media hora, para no llenar la hoja.
+- Queda en la pestaña **ENTRADAS**.
+
+### La prelista y la lista definitiva
+
+En **Competición → Convocatoria** hay ahora dos listas, las dos visibles para todo el equipo:
+
+1. **Prelista**: cada jugador pulsa **Voy** o **No voy** para el próximo partido. Se guardan **por orden
+   de apuntarse** y se numeran, tal y como dice la normativa («las 8 plazas restantes por orden de
+   inscripción»). Cada uno solo puede tocar lo suyo, y puede cambiar de opinión o borrarse.
+2. **Lista definitiva**: la sigue haciendo el cuerpo técnico con su PIN. Es la que manda.
+
+Queda en la pestaña **PRELISTA**.
+
+### Avisar por WhatsApp
+
+Con el PIN del míster o el tuyo, debajo de la convocatoria sale **«Avisar por WhatsApp»**: abre WhatsApp
+con el mensaje ya escrito (jornada, rival, día, hora, campo y el enlace de la web). Tú eliges el grupo y
+envías. La web no puede mandarlo sola: WhatsApp no lo permite sin pagar.
+
 ### Las fotos del tercer tiempo
 
 En **Tercer tiempo → Editar fotos** puedes **subir la foto directamente desde el móvil** con «Elegir

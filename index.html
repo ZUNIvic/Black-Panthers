@@ -52,8 +52,8 @@
 
   <section class="bloqueo" id="bloqueo" hidden>
     <img src="assets/escudo-600.jpg" alt="" width="600" height="600">
-    <h1>Zona del equipo</h1>
-    <p>Esta web es solo para el Black Panthers F.C. Escribe el PIN del equipo para entrar.</p>
+    <h1 id="bloqueo-titulo">Zona del equipo</h1>
+    <p id="bloqueo-texto">Esta web es solo para el Black Panthers F.C. Escribe el PIN del equipo para entrar.</p>
     <form id="form-equipo">
       <label class="campo">
         <span>PIN del equipo</span>
@@ -62,7 +62,14 @@
       <p class="error" id="equipo-error" role="alert"></p>
       <button class="boton ancho" type="submit">Entrar</button>
     </form>
-    <p class="apagado">¿No lo tienes? Pídeselo al cuerpo técnico.</p>
+    <form id="form-quien" hidden>
+      <label class="campo">
+        <span>Elige tu nombre</span>
+        <select id="quien-soy" required></select>
+      </label>
+      <button class="boton ancho" type="submit">Entrar</button>
+    </form>
+    <p class="apagado" id="bloqueo-pista">¿No lo tienes? Pídeselo al cuerpo técnico.</p>
   </section>
 
   <main id="contenido">
@@ -144,6 +151,11 @@
         <h2 class="titulo naranja"><span>Normativa interna</span></h2>
         <div class="acciones-staff" id="staff-normativa"></div>
         <div id="normativa" class="normativa"></div>
+      </div>
+
+      <div class="bloque" id="bloque-entradas" hidden>
+        <h2 class="titulo"><span>Quién entra en la web</span><small>Solo lo veis tú y el cuerpo técnico</small></h2>
+        <div id="entradas"></div>
       </div>
 
       <div id="pin-equipo"></div>
