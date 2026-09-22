@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=7';
-import { cargarCopaFacil } from './copafacil.js?v=7';
-import { leerHoja, enviarHoja } from './hoja.js?v=7';
+import { CONFIG } from './config.js?v=9';
+import { cargarCopaFacil } from './copafacil.js?v=9';
+import { leerHoja, enviarHoja } from './hoja.js?v=9';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -368,11 +368,23 @@ function chipJugador(id, tipo = 'si') {
 function etiquetasVoy(p) {
   const yo = yoSoy();
   const g = gruposConvocatoria(p);
-  const convocado = Boolean(yo && g && !g.deActa && g.convocados.includes(yo.id));
+  const lista = estado.hoja?.prelista?.[p.id] || [];
+  const hayLista = Boolean(g && !g.deActa && g.convocados.length);
+  const convocado = Boolean(yo && hayLista && g.convocados.includes(yo.id));
   const cual = p.jornada ? `la jornada ${p.jornada}` : 'el partido';
-  return convocado
-    ? { convocado: true, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'No confirmar' }
-    : { convocado: false, pregunta: p.jornada ? `¿Vas a ${cual}?` : '¿Vas al partido?', si: 'Voy', no: 'No voy' };
+  // Bajas: convocados que han dicho que no. Son las plazas que se liberan.
+  const bajas = hayLista
+    ? g.convocados.filter((id) => lista.some((x) => x.id === id && x.dice === 'no')).length
+    : 0;
+
+  if (convocado) return { convocado: true, hayLista, bajas, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'No confirmar' };
+  if (!hayLista) return { convocado: false, hayLista, bajas, pregunta: `¿Vas a ${cual}?`, si: 'Voy', no: 'No voy' };
+  // No convocado: solo puede ofrecerse si alguien se ha caído.
+  return {
+    convocado: false, hayLista, bajas, suplente: true, cerrado: bajas === 0,
+    pregunta: bajas ? `Hay ${plural(bajas, 'baja', 'bajas')} en ${cual}` : `Lista cerrada para ${cual}`,
+    si: 'Me ofrezco', no: 'No voy',
+  };
 }
 
 /** El Voy / No voy (o Confirmar) del próximo partido, arriba del todo en Competición. */
@@ -384,11 +396,34 @@ function pintarVoyRapido() {
   if (caja.hidden) return;
   const mio = (estado.hoja.prelista?.[p.id] || []).find((x) => x.id === yo.id);
   const e = etiquetasVoy(p);
+  caja.className = `voy-rapido${mio ? ` respondido ${mio.dice}` : ''}`;
+
+  // Sin convocatoria para él y sin bajas: no le toca decir nada.
+  if (e.cerrado && !mio) {
+    caja.className = 'voy-rapido cerrado';
+    return pintar(caja,
+      h('span', { class: 'pregunta-voy', text: e.pregunta }),
+      h('span', { class: 'cambiar-voy', text: 'Si alguien se cae, podrás ofrecerte' }));
+  }
+
+  // Una vez ha contestado, fuera el recuadro: solo queda lo que eligió.
+  if (mio) {
+    const dicho = mio.dice === 'voy'
+      ? (e.convocado ? 'Confirmado' : e.suplente ? 'Te has ofrecido' : 'Vas al partido')
+      : (e.convocado ? 'No confirmado' : 'No vas al partido');
+    return pintar(caja,
+      h('button', {
+        type: 'button', class: 'estado-voy', title: 'Toca para cambiar de respuesta',
+        onclick: () => guardarPrelista(p, 'quitar'),
+      }, `${mio.dice === 'voy' ? '✓' : '✗'} ${dicho}`),
+      h('span', { class: 'cambiar-voy', text: 'Toca para cambiar' }));
+  }
+
   pintar(caja,
     h('span', { class: 'pregunta-voy', text: e.pregunta }),
     h('span', { class: 'botones-voy' },
-      h('button', { type: 'button', class: `chip-voy${mio?.dice === 'voy' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'voy' ? 'quitar' : 'voy') }, `✓ ${e.si}`),
-      h('button', { type: 'button', class: `chip-voy no${mio?.dice === 'no' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'no' ? 'quitar' : 'no') }, `✗ ${e.no}`)));
+      h('button', { type: 'button', class: 'chip-voy', onclick: () => guardarPrelista(p, 'voy') }, `✓ ${e.si}`),
+      e.suplente ? null : h('button', { type: 'button', class: 'chip-voy no', onclick: () => guardarPrelista(p, 'no') }, `✗ ${e.no}`)));
 }
 
 /** Prelista: la hacen los jugadores diciendo si van o no. La ve todo el equipo. */
@@ -419,13 +454,17 @@ function bloquePrelista(p) {
             h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
         }))
       : null,
-    yo
-      ? h('div', { class: 'fila-acciones' },
-          h('button', { type: 'button', class: `boton${mio?.dice === 'voy' ? '' : '-secundario'}`, onclick: () => apuntar('voy') },
-            mio?.dice === 'voy' ? `✓ ${e.si}` : e.si),
-          h('button', { type: 'button', class: `boton${mio?.dice === 'no' ? '' : '-secundario'}`, onclick: () => apuntar('no') },
-            mio?.dice === 'no' ? `✗ ${e.no}` : e.no))
-      : h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' }));
+    !yo
+      ? h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' })
+      : e.cerrado && !mio
+        ? h('p', { class: 'apagado', text: 'No estás en la lista del cuerpo técnico. Si alguien se cae, aquí podrás ofrecerte.' })
+        : h('div', { class: 'fila-acciones' },
+            h('button', { type: 'button', class: `boton${mio?.dice === 'voy' ? '' : '-secundario'}`, onclick: () => apuntar('voy') },
+              mio?.dice === 'voy' ? `✓ ${e.si}` : e.si),
+            e.suplente && !mio
+              ? null
+              : h('button', { type: 'button', class: `boton${mio?.dice === 'no' ? '' : '-secundario'}`, onclick: () => apuntar('no') },
+                  mio?.dice === 'no' ? `✗ ${e.no}` : e.no)));
 }
 
 async function guardarPrelista(p, dice) {
