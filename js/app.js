@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=4';
-import { cargarCopaFacil } from './copafacil.js?v=4';
-import { leerHoja, enviarHoja } from './hoja.js?v=4';
+import { CONFIG } from './config.js?v=5';
+import { cargarCopaFacil } from './copafacil.js?v=5';
+import { leerHoja, enviarHoja } from './hoja.js?v=5';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -361,6 +361,21 @@ function chipJugador(id, tipo = 'si') {
 }
 
 /** Las tres listas de un partido: convocados (naranja), no vienen (rojo) y no convocados (gris). */
+/** El Voy / No voy del próximo partido, arriba del todo en Competición. */
+function pintarVoyRapido() {
+  const caja = $('#voy-rapido');
+  const p = proximoPartido();
+  const yo = yoSoy();
+  caja.hidden = !(p && yo && hayHoja() && estado.hoja);
+  if (caja.hidden) return;
+  const mio = (estado.hoja.prelista?.[p.id] || []).find((x) => x.id === yo.id);
+  pintar(caja,
+    h('span', { class: 'pregunta-voy', text: p.jornada ? `¿Vas a la jornada ${p.jornada}?` : '¿Vas al partido?' }),
+    h('span', { class: 'botones-voy' },
+      h('button', { type: 'button', class: `chip-voy${mio?.dice === 'voy' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'voy' ? 'quitar' : 'voy') }, '✓ Voy'),
+      h('button', { type: 'button', class: `chip-voy no${mio?.dice === 'no' ? ' puesto' : ''}`, onclick: () => guardarPrelista(p, mio?.dice === 'no' ? 'quitar' : 'no') }, '✗ No voy')));
+}
+
 /** Prelista: la hacen los jugadores diciendo si van o no. La ve todo el equipo. */
 function bloquePrelista(p) {
   if (!p || p.finalizado || !hayHoja()) return null;
@@ -1664,6 +1679,7 @@ function pintarTodo() {
   aSalvo('pintarProximoPartido', () => pintarProximoPartido());
   aSalvo('pintarProximoEntreno', () => pintarProximoEntreno());
   aSalvo('pintarConvocatoriaProxima', () => pintarConvocatoriaProxima());
+  aSalvo('pintarVoyRapido', () => pintarVoyRapido());
   aSalvo('pintarEstadisticas', () => pintarEstadisticas());
   aSalvo('pintarPlantilla', () => pintarPlantilla());
   aSalvo('pintarLesionados', () => pintarLesionados());

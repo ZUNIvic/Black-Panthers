@@ -1061,3 +1061,15 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   width: 100%; background: var(--negro); border: 1px solid var(--borde); border-radius: 10px;
   color: var(--texto); padding: 11px; font: inherit; margin-top: 6px;
 }
+
+/* Voy / No voy, junto al título de Competición */
+.voy-rapido { display: grid; gap: 5px; justify-items: end; margin-left: auto; }
+.pregunta-voy { font-size: 0.75rem; font-weight: 700; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.botones-voy { display: flex; gap: 6px; }
+.chip-voy {
+  cursor: pointer; font-weight: 800; font-size: 0.85rem; padding: 8px 12px; border-radius: 999px;
+  background: var(--panel-2); color: var(--texto-2); border: 1px solid var(--borde); min-height: 40px;
+}
+.chip-voy:hover { border-color: var(--naranja); color: var(--texto); }
+.chip-voy.puesto { background: var(--verde); border-color: var(--verde); color: #05210f; }
+.chip-voy.no.puesto { background: var(--rojo); border-color: var(--rojo); color: #2b0603; }
