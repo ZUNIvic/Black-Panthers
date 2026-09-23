@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=13';
-import { cargarCopaFacil } from './copafacil.js?v=13';
-import { leerHoja, enviarHoja } from './hoja.js?v=13';
+import { CONFIG } from './config.js?v=14';
+import { cargarCopaFacil } from './copafacil.js?v=14';
+import { leerHoja, enviarHoja } from './hoja.js?v=14';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -146,6 +146,7 @@ const esStaff = () => estado.staff && hayHoja();
 const PERMISOS = {
   convocar: ['staff'], comentar: ['staff'], tesoreria: ['tesoreria'],
   mvp: ['staff'], // el MVP elegido a mano
+  notas: ['staff'], // las notas del MVP en la plantilla
   entradas: ['staff'], // quién entra en la web
   mensajeTecnico: ['staff'], // las instrucciones del cuerpo técnico
   pinStaff: ['staff'],        // el míster cambia su propio PIN
@@ -682,6 +683,9 @@ function celdaPorcentaje(n, de, que) {
 
 function pintarPlantilla() {
   const cuerpo = $('#plantilla tbody');
+  // La nota del MVP solo la ven el cuerpo técnico y el administrador.
+  const verNotas = permitido('notas');
+  $('#th-nota').hidden = !verNotas;
   pintar($('#staff-plantilla'), botonStaff('Editar plantilla', abrirPlantilla));
   const lista = jugadores();
   const inactivos = plantillaCompleta().filter((j) => !j.activo);
@@ -690,7 +694,7 @@ function pintarPlantilla() {
         h('button', { type: 'button', class: 'enlace-inactivo', onclick: () => abrirJugador(j.id) }, `${j.nombre} ✎`))]
     : null);
   if (!lista.length) {
-    return pintar(cuerpo, h('tr', {}, h('td', { colspan: 10, class: 'izq' }, vacio(estado.errorCf ? 'No se ha podido cargar la plantilla.' : 'Cargando plantilla…'))));
+    return pintar(cuerpo, h('tr', {}, h('td', { colspan: verNotas ? 10 : 9, class: 'izq' }, vacio(estado.errorCf ? 'No se ha podido cargar la plantilla.' : 'Cargando plantilla…'))));
   }
   const { sesiones = 0, porJugador = {} } = estado.hoja?.entrenos || {};
   const ap = asistenciaPartidos();
@@ -720,7 +724,9 @@ function pintarPlantilla() {
       h('td', { class: j.goles ? 'goles-a-favor' : 'cero', text: j.goles }),
       celdaPorcentaje(porJugador[j.id] || 0, sesiones, 'entrenos'),
       celda(j.ta), celda(j.tr),
-      (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })());
+      verNotas
+        ? (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })()
+        : null);
   }));
 }
 
@@ -1075,7 +1081,9 @@ function abrirFicha(id) {
       datoFicha(j.ta, 'Amarillas'),
       datoFicha(j.tr, 'Rojas'),
       hayHoja() ? datoFicha(vecesConvocado(id), 'Convocatorias') : null,
-      (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()),
+      permitido('notas') || id === recuperar(CLAVE_YO)
+        ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
+        : null),
     lesion
       ? h('p', { class: 'aviso-ficha', text: `${lesion.estado === 'duda' ? 'Duda' : 'Baja'}${lesion.detalle ? `: ${lesion.detalle}` : ''}${esIso(lesion.vuelta) ? ` · vuelta prevista ${diaHoja(lesion.vuelta, { day: 'numeric', month: 'long' })}` : ''}` })
       : null,
