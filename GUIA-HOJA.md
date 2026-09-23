@@ -109,7 +109,9 @@ a todos los compañeros que jugaron, sin poder votarse a sí mismos. **La votaci
 después del partido**; a partir de ahí el desplegable solo enseña el resultado. Al abrirlo aparece el
 podio con los tres primeros y su **nota sobre 10**: la media de estrellas que le pone cada uno de los que
 le votan, sobre 3. Si los que te votan te dan las tres estrellas, sacas un 10. Esa nota **solo la veis el cuerpo técnico y tú**, en la columna **Nota** de la plantilla y en la ficha de
-cada jugador. Los jugadores no la ven, ni siquiera la suya. El MVP de la última jornada sí se ve nada más entrar en
+cada jugador. Los jugadores no la ven, ni siquiera la suya.
+Lo que sí ve todo el equipo es la columna **MVP**: cuántas veces ha sido cada uno el mejor del partido.
+Eso es un trofeo y motiva; una clasificación con notas, no. El MVP de la última jornada sí se ve nada más entrar en
 **Competición**, para todos. Se puede cambiar el voto mientras esté abierta: el último sustituye al anterior. Todo
 queda en la pestaña **VOTOS**.
 

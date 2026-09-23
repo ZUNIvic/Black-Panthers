@@ -790,6 +790,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 .cuerpo-votacion { padding: 0 14px 14px; }
 .podio .nota { font-family: var(--display); font-size: 1.15rem; color: var(--texto); background: var(--panel); border-radius: 8px; padding: 1px 8px; }
 .tabla .nota-mvp { font-weight: 800; color: var(--naranja-claro); }
+.tabla .trofeos { font-weight: 800; white-space: nowrap; }
+.tabla .trofeos svg { width: 15px; height: 17px; vertical-align: -3px; margin-right: 2px; }
 .titulo-votacion {
   display: flex; align-items: center; gap: 8px; min-width: 0;
   font-family: var(--display); font-weight: 400; font-size: 1.3rem; letter-spacing: 0.04em; text-transform: uppercase;

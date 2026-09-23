@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=16';
-import { cargarCopaFacil } from './copafacil.js?v=16';
-import { leerHoja, enviarHoja } from './hoja.js?v=16';
+import { CONFIG } from './config.js?v=17';
+import { cargarCopaFacil } from './copafacil.js?v=17';
+import { leerHoja, enviarHoja } from './hoja.js?v=17';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -697,7 +697,7 @@ function pintarPlantilla() {
         h('button', { type: 'button', class: 'enlace-inactivo', onclick: () => abrirJugador(j.id) }, `${j.nombre} ✎`))]
     : null);
   if (!lista.length) {
-    return pintar(cuerpo, h('tr', {}, h('td', { colspan: verNotas ? 10 : 9, class: 'izq' }, vacio(estado.errorCf ? 'No se ha podido cargar la plantilla.' : 'Cargando plantilla…'))));
+    return pintar(cuerpo, h('tr', {}, h('td', { colspan: verNotas ? 11 : 10, class: 'izq' }, vacio(estado.errorCf ? 'No se ha podido cargar la plantilla.' : 'Cargando plantilla…'))));
   }
   const { sesiones = 0, porJugador = {} } = estado.hoja?.entrenos || {};
   const ap = asistenciaPartidos();
@@ -727,6 +727,11 @@ function pintarPlantilla() {
       h('td', { class: j.goles ? 'goles-a-favor' : 'cero', text: j.goles }),
       celdaPorcentaje(porJugador[j.id] || 0, sesiones, 'entrenos'),
       celda(j.ta), celda(j.tr),
+      (() => {
+        const t = trofeosMvp(j.id);
+        return h('td', { class: t ? 'trofeos' : 'cero', title: t ? `MVP en ${plural(t, 'partido', 'partidos')}` : 'Todavía no ha sido MVP' },
+          t ? [icono('trofeo'), String(t)] : '–');
+      })(),
       verNotas
         ? (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })()
         : null);
@@ -828,6 +833,11 @@ function mvpDe(p) {
     return { j: aMano, estrellas: votosDe(p.id).totales[aMano.id] || 0, nota: nota(aMano.id), aMano: true };
   }
   return podio(p.id)[0] || null;
+}
+
+/** Cuántas veces ha sido MVP de un partido. Lo ve todo el equipo: es un trofeo, no una nota. */
+function trofeosMvp(id) {
+  return (estado.cf?.partidos || []).filter((p) => p.finalizado && mvpDe(p)?.j.id === id).length;
 }
 
 /** El MVP del último partido votado, para verlo nada más entrar en Competición. */
@@ -1084,6 +1094,7 @@ function abrirFicha(id) {
       datoFicha(j.ta, 'Amarillas'),
       datoFicha(j.tr, 'Rojas'),
       hayHoja() ? datoFicha(vecesConvocado(id), 'Convocatorias') : null,
+      (() => { const t = trofeosMvp(id); return datoFicha(t, 'Trofeos MVP', t ? 'mejor jugador del partido' : 'todavía ninguno'); })(),
       // La nota es solo para el cuerpo técnico: ni la suya propia ven los jugadores.
       permitido('notas')
         ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
