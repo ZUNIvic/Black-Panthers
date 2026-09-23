@@ -107,8 +107,8 @@ Quien no tenga permiso no ve el botón; y si lo intentara igualmente, el script 
 jugadores **sin PIN**: eligen su nombre (solo la primera vez en cada móvil) y reparten de 1 a 3 estrellas
 a todos los compañeros que jugaron, sin poder votarse a sí mismos. **La votación se cierra dos días
 después del partido**; a partir de ahí el desplegable solo enseña el resultado. Al abrirlo aparece el
-podio con los tres primeros y su **nota sobre 10** (las estrellas del jugador entre todas las estrellas
-repartidas en ese partido). Esa nota sale también en la columna **Nota** de la plantilla y en la ficha de
+podio con los tres primeros y su **nota sobre 10**: la media de estrellas que le pone cada uno de los que
+le votan, sobre 3. Si los que te votan te dan las tres estrellas, sacas un 10. Esa nota sale también en la columna **Nota** de la plantilla y en la ficha de
 cada jugador (media de todos los partidos), y el MVP de la última jornada se ve nada más entrar en
 **Competición**. Se puede cambiar el voto mientras esté abierta: el último sustituye al anterior. Todo
 queda en la pestaña **VOTOS**.

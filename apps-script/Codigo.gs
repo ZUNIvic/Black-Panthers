@@ -393,8 +393,9 @@ function leerVotos_() {
     const votado = texto_(f['Votado ID']);
     const estrellas = Math.min(3, Math.max(0, Math.round(Number(f['Estrellas']) || 0)));
     if (!partido || !votante || !votado || !estrellas) return;
-    const v = (res[partido] = res[partido] || { totales: {}, votantes: [] });
+    const v = (res[partido] = res[partido] || { totales: {}, veces: {}, votantes: [] });
     v.totales[votado] = (v.totales[votado] || 0) + estrellas;
+    v.veces[votado] = (v.veces[votado] || 0) + 1; // cuántos le han votado, para la nota
     if (v.votantes.indexOf(votante) < 0) v.votantes.push(votante);
   });
   return res;

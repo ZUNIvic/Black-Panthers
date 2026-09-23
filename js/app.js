@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=12';
-import { cargarCopaFacil } from './copafacil.js?v=12';
-import { leerHoja, enviarHoja } from './hoja.js?v=12';
+import { CONFIG } from './config.js?v=13';
+import { cargarCopaFacil } from './copafacil.js?v=13';
+import { leerHoja, enviarHoja } from './hoja.js?v=13';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -748,7 +748,7 @@ const DIAS_VOTACION = 2;
 
 let votacion = null; // { partido, votos: Map(id → estrellas) }
 
-const votosDe = (partidoId) => estado.hoja?.votos?.[partidoId] || { totales: {}, votantes: [] };
+const votosDe = (partidoId) => estado.hoja?.votos?.[partidoId] || { totales: {}, veces: {}, votantes: [] };
 const yoSoy = () => jugadorPorId(recuperar(CLAVE_YO));
 
 /** La votación se cierra dos días después del partido (contando el día del partido). */
@@ -757,26 +757,41 @@ function votacionAbierta(p) {
   return diasEntre(isoDe(p.fecha), hoyIso()) <= DIAS_VOTACION;
 }
 
-/** Nota sobre 10: estrellas del jugador entre el total de estrellas repartidas en ese partido. */
+/**
+ * Nota sobre 10: la media de estrellas que le pone cada uno que le vota, sobre 3.
+ * Si todos los que te votan te dan las 3 estrellas, sacas un 10.
+ */
 function notasPartido(partidoId) {
-  const { totales } = votosDe(partidoId);
+  const { totales, veces } = votosDe(partidoId);
   const total = Object.values(totales).reduce((s, n) => s + n, 0);
-  return { total, nota: (id) => (total ? ((totales[id] || 0) / total) * 10 : null) };
+  return {
+    total,
+    nota: (id) => {
+      const estrellas = totales[id] || 0;
+      if (!estrellas) return null;
+      const cuantos = veces?.[id];
+      if (cuantos) return (estrellas / (cuantos * 3)) * 10;
+      return total ? (estrellas / total) * 10 : null; // hoja sin actualizar todavía
+    },
+  };
 }
 
 /** Resumen de la temporada de un jugador: nota media, estrellas y partidos votado. */
 function mvpJugador(id) {
-  let suma = 0;
-  let partidos = 0;
   let estrellas = 0;
+  let cuantos = 0;   // veces que le han votado en toda la temporada
+  let partidos = 0;
+  let suma = 0;      // por si la hoja aún no manda "veces"
   Object.keys(estado.hoja?.votos || {}).forEach((partidoId) => {
-    const { totales } = votosDe(partidoId);
+    const { totales, veces } = votosDe(partidoId);
+    if (!totales[id]) return;
     const total = Object.values(totales).reduce((s, n) => s + n, 0);
-    if (!total || !totales[id]) return;
-    suma += (totales[id] / total) * 10;
     estrellas += totales[id];
+    cuantos += veces?.[id] || 0;
+    if (total) suma += (totales[id] / total) * 10;
     partidos++;
   });
+  if (cuantos) return { nota: (estrellas / (cuantos * 3)) * 10, estrellas, partidos };
   return { nota: partidos ? suma / partidos : null, estrellas, partidos };
 }
 
