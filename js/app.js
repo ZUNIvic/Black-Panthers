@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=14';
-import { cargarCopaFacil } from './copafacil.js?v=14';
-import { leerHoja, enviarHoja } from './hoja.js?v=14';
+import { CONFIG } from './config.js?v=15';
+import { cargarCopaFacil } from './copafacil.js?v=15';
+import { leerHoja, enviarHoja } from './hoja.js?v=15';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -39,6 +39,9 @@ const ICONOS = {
   album: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg>',
   pin: '<svg viewBox="0 0 24 24"><path d="M12 17v4M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6Z"/></svg>',
   estrella: '<svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z"/></svg>',
+  trofeo: '<svg viewBox="0 0 24 28"><path d="M6 2h12v7a6 6 0 0 1-12 0Z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/><path d="M6 4H3v2a4 4 0 0 0 3 3.8M18 4h3v2a4 4 0 0 1-3 3.8" fill="none" stroke="#8a6d00" stroke-width="1.4"/><path d="M11 15h2v4h-2z" fill="#8a6d00" stroke="none"/><path d="M7 21h10v3H7z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/></svg>',
+  plata: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#7a7a7a" stroke="none"/><circle cx="11" cy="21" r="8" fill="#d8d8d8" stroke="#8c8c8c" stroke-width="1.5"/></svg>',
+  bronce: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#8a4b1f" stroke="none"/><circle cx="11" cy="21" r="8" fill="#c87f3a" stroke="#7a4517" stroke-width="1.5"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12Z"/><path d="M9.2 9.4c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.6 1.4c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6.3.5.8 1.1 1.5 1.5.3.2.5.2.7 0l.5-.5c.2-.2.4-.2.6-.1l1.3.7c.4.2.4.4.4.6 0 .5-.4 1.1-1 1.3-.8.3-1.9 0-3.2-.8-1.3-.9-2.2-2-2.7-3-.4-.9-.3-1.7.1-2.3Z"/></svg>',
 };
 
@@ -876,7 +879,7 @@ function bloqueVotacion(p, { abierto = false } = {}) {
       tres.length
         ? h('ol', { class: 'podio' }, tres.map((x, i) =>
             h('li', { class: `puesto-${i + 1}` },
-              h('span', { class: 'medalla', text: ['🥇', '🥈', '🥉'][i] }),
+              h('span', { class: 'medalla' }, icono(['trofeo', 'plata', 'bronce'][i])),
               imagen(x.j.foto),
               h('span', { class: 'nombre', text: nombreCorto(x.j) }),
               h('span', { class: 'nota' }, nota1(x.nota), h('small', { class: 'de-diez', text: '/10' })),
