@@ -1109,3 +1109,12 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .voy-rapido .secundaria-voy.no { color: var(--rojo); }
 .voy-rapido .secundaria-voy.voy { color: var(--verde); }
 .voy-rapido .secundaria-voy:hover { text-decoration: none; }
+.voy-rapido.recuento { background: var(--naranja); justify-items: center; }
+.voy-rapido.recuento .pregunta-voy { font-size: 1.05rem; }
+.marcas-recuento { display: flex; gap: 10px; align-items: baseline; font-weight: 800; font-size: 0.85rem; }
+.marcas-recuento .marca-conf { color: #05210f; }
+.marcas-recuento .marca-baja { color: #5c0d07; }
+.marcas-recuento .marca-falta { color: #3d1c00; }
+.recuento-conf { margin: 0 0 6px; font-size: 0.95rem; }
+.recuento-conf strong { color: var(--verde); }
+.recuento-conf .baja-conf { color: var(--rojo); font-weight: 700; }

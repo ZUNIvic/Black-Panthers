@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=11';
-import { cargarCopaFacil } from './copafacil.js?v=11';
-import { leerHoja, enviarHoja } from './hoja.js?v=11';
+import { CONFIG } from './config.js?v=12';
+import { cargarCopaFacil } from './copafacil.js?v=12';
+import { leerHoja, enviarHoja } from './hoja.js?v=12';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -388,6 +388,20 @@ function etiquetasVoy(p) {
   };
 }
 
+/** Cómo va la convocatoria: cuántos han confirmado, cuántas bajas y quién falta. */
+function resumenConfirmaciones(p) {
+  const g = gruposConvocatoria(p);
+  if (!g || g.deActa || !g.convocados.length) return null;
+  const lista = estado.hoja?.prelista?.[p.id] || [];
+  const respuesta = (id) => lista.find((x) => x.id === id)?.dice;
+  return {
+    total: g.convocados.length,
+    confirmados: g.convocados.filter((id) => respuesta(id) === 'voy'),
+    bajas: g.convocados.filter((id) => respuesta(id) === 'no'),
+    faltan: g.convocados.filter((id) => !respuesta(id)),
+  };
+}
+
 /** El Voy / No voy (o Confirmar) del próximo partido, arriba del todo en Competición. */
 function pintarVoyRapido() {
   const caja = $('#voy-rapido');
@@ -398,6 +412,18 @@ function pintarVoyRapido() {
   const mio = (estado.hoja.prelista?.[p.id] || []).find((x) => x.id === yo.id);
   const e = etiquetasVoy(p);
   caja.className = `voy-rapido${mio ? ` respondido ${mio.dice}` : ''}`;
+
+  // Al cuerpo técnico le interesa el recuento, no el «lista cerrada».
+  const r = resumenConfirmaciones(p);
+  if (permitido('convocar') && r && !e.convocado) {
+    caja.className = 'voy-rapido recuento';
+    return pintar(caja,
+      h('span', { class: 'pregunta-voy', text: `Confirmados ${r.confirmados.length} de ${r.total}` }),
+      h('span', { class: 'marcas-recuento' },
+        h('span', { class: 'marca-conf', text: `✓ ${r.confirmados.length}` }),
+        h('span', { class: 'marca-baja', text: `✗ ${r.bajas.length}` }),
+        h('span', { class: 'marca-falta', text: `· ${r.faltan.length} sin contestar` })));
+  }
 
   // Sin convocatoria para él y sin bajas: no le toca decir nada.
   if (e.cerrado && !mio) {
@@ -445,9 +471,19 @@ function bloquePrelista(p) {
 
   const apuntar = (dice) => guardarPrelista(p, dice === mio?.dice ? 'quitar' : dice);
   const e = etiquetasVoy(p);
+  const r = resumenConfirmaciones(p);
   return h('div', { class: 'prelista' },
-    h('h3', { class: 'subtitulo' }, e.convocado ? 'Confirmaciones' : 'Prelista',
-      h('small', { text: e.convocado ? ' · quién ha confirmado, por orden' : ' · quién dice que va, por orden' })),
+    h('h3', { class: 'subtitulo' }, r ? 'Confirmaciones' : 'Prelista',
+      h('small', { text: r ? ' · quién ha confirmado, por orden' : ' · quién dice que va, por orden' })),
+    r
+      ? [h('p', { class: 'recuento-conf' },
+          h('strong', { text: `${r.confirmados.length} de ${r.total} confirmados` }),
+          r.bajas.length ? h('span', { class: 'baja-conf', text: ` · ${plural(r.bajas.length, 'baja', 'bajas')}` }) : null,
+          r.faltan.length ? h('span', { class: 'apagado', text: ` · ${r.faltan.length} sin contestar` }) : null),
+         r.faltan.length
+           ? h('p', { class: 'apagado', text: `Falta por contestar: ${r.faltan.map((id) => nombreCorto(jugadorPorId(id))).filter(Boolean).join(', ')}.` })
+           : null]
+      : null,
     van.length
       ? h('ol', { class: 'chips numerada' }, van.map((x) => {
           const j = jugadorPorId(x.id);
