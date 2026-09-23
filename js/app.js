@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=15';
-import { cargarCopaFacil } from './copafacil.js?v=15';
-import { leerHoja, enviarHoja } from './hoja.js?v=15';
+import { CONFIG } from './config.js?v=16';
+import { cargarCopaFacil } from './copafacil.js?v=16';
+import { leerHoja, enviarHoja } from './hoja.js?v=16';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -1084,7 +1084,8 @@ function abrirFicha(id) {
       datoFicha(j.ta, 'Amarillas'),
       datoFicha(j.tr, 'Rojas'),
       hayHoja() ? datoFicha(vecesConvocado(id), 'Convocatorias') : null,
-      permitido('notas') || id === recuperar(CLAVE_YO)
+      // La nota es solo para el cuerpo técnico: ni la suya propia ven los jugadores.
+      permitido('notas')
         ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
         : null),
     lesion
