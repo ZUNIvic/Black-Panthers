@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=17';
-import { cargarCopaFacil } from './copafacil.js?v=17';
-import { leerHoja, enviarHoja } from './hoja.js?v=17';
+import { CONFIG } from './config.js?v=18';
+import { cargarCopaFacil } from './copafacil.js?v=18';
+import { leerHoja, enviarHoja } from './hoja.js?v=18';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -728,9 +728,10 @@ function pintarPlantilla() {
       celdaPorcentaje(porJugador[j.id] || 0, sesiones, 'entrenos'),
       celda(j.ta), celda(j.tr),
       (() => {
-        const t = trofeosMvp(j.id);
-        return h('td', { class: t ? 'trofeos' : 'cero', title: t ? `MVP en ${plural(t, 'partido', 'partidos')}` : 'Todavía no ha sido MVP' },
-          t ? [icono('trofeo'), String(t)] : '–');
+        const m = medallasMvp(j.id);
+        const medalla = (n, cual) => (n ? h('span', { class: 'medalla-cuenta' }, icono(cual), String(n)) : null);
+        return h('td', { class: m.total ? 'trofeos' : 'cero', title: m.total ? `${m.oro} de oro · ${m.plata} de plata · ${m.bronce} de bronce` : 'Todavía no ha subido al podio' },
+          m.total ? [medalla(m.oro, 'trofeo'), medalla(m.plata, 'plata'), medalla(m.bronce, 'bronce')] : '–');
       })(),
       verNotas
         ? (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })()
@@ -835,9 +836,26 @@ function mvpDe(p) {
   return podio(p.id)[0] || null;
 }
 
-/** Cuántas veces ha sido MVP de un partido. Lo ve todo el equipo: es un trofeo, no una nota. */
-function trofeosMvp(id) {
-  return (estado.cf?.partidos || []).filter((p) => p.finalizado && mvpDe(p)?.j.id === id).length;
+/**
+ * El podio de un partido, de oro a bronce. Si el MVP lo puso el cuerpo técnico,
+ * ese va primero y detrás los más votados.
+ */
+function puestosPartido(p) {
+  const mejor = mvpDe(p);
+  const lista = mejor ? [mejor.j.id] : [];
+  podio(p.id).forEach((x) => { if (!lista.includes(x.j.id)) lista.push(x.j.id); });
+  return lista.slice(0, 3);
+}
+
+/** Medallero de un jugador. Lo ve todo el equipo: son trofeos, no notas. */
+function medallasMvp(id) {
+  const m = [0, 0, 0];
+  (estado.cf?.partidos || []).forEach((p) => {
+    if (!p.finalizado) return;
+    const puesto = puestosPartido(p).indexOf(id);
+    if (puesto >= 0) m[puesto]++;
+  });
+  return { oro: m[0], plata: m[1], bronce: m[2], total: m[0] + m[1] + m[2] };
 }
 
 /** El MVP del último partido votado, para verlo nada más entrar en Competición. */
@@ -1094,7 +1112,11 @@ function abrirFicha(id) {
       datoFicha(j.ta, 'Amarillas'),
       datoFicha(j.tr, 'Rojas'),
       hayHoja() ? datoFicha(vecesConvocado(id), 'Convocatorias') : null,
-      (() => { const t = trofeosMvp(id); return datoFicha(t, 'Trofeos MVP', t ? 'mejor jugador del partido' : 'todavía ninguno'); })(),
+      (() => {
+        const m = medallasMvp(id);
+        const partes = [m.plata ? `${m.plata} de plata` : null, m.bronce ? `${m.bronce} de bronce` : null].filter(Boolean);
+        return datoFicha(m.oro, 'Trofeos MVP', partes.length ? partes.join(' · ') : m.oro ? 'mejor jugador del partido' : 'todavía ninguno');
+      })(),
       // La nota es solo para el cuerpo técnico: ni la suya propia ven los jugadores.
       permitido('notas')
         ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
