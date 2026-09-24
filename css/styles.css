@@ -961,8 +961,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 .podio-mini .nombre { font-size: 0.7rem; font-weight: 700; line-height: 1.1; color: #111; }
 .podio-mini .p1 .nombre { font-size: 0.78rem; font-weight: 800; }
 .podio-mini .nota {
-  width: 100%; font-family: var(--display); font-size: 0.95rem; background: #111; color: var(--oro);
-  border-radius: 999px; padding: 1px 0;
+  width: 100%; font-family: var(--display); font-size: 1rem; background: #111; color: var(--oro);
+  border-radius: 999px; padding: 1px 0; white-space: nowrap;
 }
 .podio-mini .p1 .nota { font-size: 1.15rem; }
 .nota .de-diez { font-size: 0.6em; margin-left: 1px; }

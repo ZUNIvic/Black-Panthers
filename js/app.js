@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=22';
-import { cargarCopaFacil } from './copafacil.js?v=22';
-import { leerHoja, enviarHoja } from './hoja.js?v=22';
+import { CONFIG } from './config.js?v=23';
+import { cargarCopaFacil } from './copafacil.js?v=23';
+import { leerHoja, enviarHoja } from './hoja.js?v=23';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -781,7 +781,13 @@ function pintarPlantilla() {
           m.total ? [medalla(m.oro, 'trofeo'), medalla(m.plata, 'plata'), medalla(m.bronce, 'bronce')] : '–');
       })(),
       verNotas
-        ? (() => { const m = mvpJugador(j.id); return h('td', { class: m.nota === null ? 'cero' : 'nota-mvp', text: nota1(m.nota), title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'Sin votos todavía' }); })()
+        ? (() => {
+            const m = mvpJugador(j.id);
+            return h('td', {
+              class: m.estrellas ? 'nota-mvp' : 'cero', text: m.estrellas || '–',
+              title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')} votados` : 'Sin votos todavía',
+            });
+          })()
         : null);
   }));
 }
@@ -926,7 +932,7 @@ function pintarMvpMini() {
   caja.hidden = !r;
   if (!r) return;
   const { partido: p, puestos } = r;
-  const { nota } = notasPartido(p.id);
+  const estrellas = (id) => votosDe(p.id).totales[id] || 0;
   const abierta = votacionAbierta(p);
   const iconos = ['trofeo', 'plata', 'bronce'];
   caja.title = `Podio${p.jornada ? ` de la jornada ${p.jornada}` : ''} · vs ${rivalDe(p).nombre}`;
@@ -934,12 +940,11 @@ function pintarMvpMini() {
   const puesto = (id, i) => {
     const j = jugadorPorId(id);
     if (!j) return null;
-    const n = nota(id);
     return h('li', { class: `puesto p${i + 1}` },
       icono(iconos[i]),
       imagen(j.foto),
       h('span', { class: 'nombre', text: nombrePila(j) }),
-      h('span', { class: 'nota', text: n === null || n === undefined ? '–' : nota1(n) }));
+      h('span', { class: 'nota', text: `${estrellas(id)} ★` }));
   };
 
   // En una fila y con el ganador en medio, como un cajón de verdad.
@@ -979,7 +984,6 @@ function bloqueVotacion(p, { abierto = false } = {}) {
               h('span', { class: 'medalla' }, icono(['trofeo', 'plata', 'bronce'][i])),
               imagen(x.j.foto),
               h('span', { class: 'nombre', text: nombreCorto(x.j) }),
-              h('span', { class: 'nota' }, nota1(x.nota), h('small', { class: 'de-diez', text: '/10' })),
               h('span', { class: 'estrellas', text: `${x.estrellas} ★` }))))
         : h('p', { class: 'apagado', text: sePuede ? 'Todavía no ha votado nadie. ¡Sé el primero!' : 'Nadie votó en este partido.' }),
       mejor?.aMano
@@ -1188,7 +1192,7 @@ function abrirFicha(id) {
       })(),
       // La nota es solo para el cuerpo técnico: ni la suya propia ven los jugadores.
       permitido('notas')
-        ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ · ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
+        ? (() => { const m = mvpJugador(id); return datoFicha(m.estrellas, 'Estrellas MVP', m.partidos ? `en ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
         : null),
     lesion
       ? h('p', { class: 'aviso-ficha', text: `${lesion.estado === 'duda' ? 'Duda' : 'Baja'}${lesion.detalle ? `: ${lesion.detalle}` : ''}${esIso(lesion.vuelta) ? ` · vuelta prevista ${diaHoja(lesion.vuelta, { day: 'numeric', month: 'long' })}` : ''}` })
