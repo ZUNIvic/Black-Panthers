@@ -935,22 +935,27 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 .anuncio h3, .anuncio p, .anuncio .fecha { color: var(--negro-oro); }
 .anuncio .etiqueta { background: var(--naranja-oro); color: #fff; }
 
-/* MVP de la última jornada, junto a la frase de Competición */
+/* Podio de la última jornada, junto a la frase de Competición */
 .mvp-mini {
-  display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0;
-  background: var(--oro); border: 1px solid var(--oro-borde); border-radius: 999px;
-  padding: 4px 6px 4px 4px; color: var(--negro-oro);
+  display: grid; gap: 4px; margin-left: auto; flex-shrink: 0; max-width: 260px;
+  background: var(--oro); border: 2px solid var(--oro-borde); border-radius: 12px;
+  padding: 7px 9px; color: var(--negro-oro);
 }
-.mvp-mini img, .mvp-mini .foto-vacia {
-  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
-  border: 2px solid var(--negro-oro); background: var(--oro);
+.mvp-mini .titulo-podio {
+  margin: 0; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--naranja-oro); text-align: center;
 }
-.mvp-mini .texto-mvp { display: grid; line-height: 1.1; }
-.mvp-mini .etiqueta-mvp { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; color: var(--naranja-oro); }
-.mvp-mini .nombre { font-size: 0.9rem; font-weight: 700; white-space: nowrap; }
-.mvp-mini .nota {
-  font-family: var(--display); font-size: 1.15rem; background: var(--negro-oro); color: var(--oro);
-  border-radius: 999px; padding: 2px 9px;
+.mvp-mini .titulo-podio small { font-size: 0.9em; font-weight: 700; }
+.podio-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.podio-mini li { display: flex; align-items: center; gap: 6px; }
+.podio-mini svg { width: 17px; height: 19px; }
+.podio-mini img, .podio-mini .foto-vacia {
+  width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1px solid var(--negro-oro); background: var(--oro);
+}
+.podio-mini .nombre { flex: 1; font-size: 0.8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.podio-mini .nota {
+  font-family: var(--display); font-size: 0.95rem; background: var(--negro-oro); color: var(--oro);
+  border-radius: 999px; padding: 0 7px;
 }
 .nota .de-diez { font-size: 0.6em; margin-left: 1px; }
 .votacion .designado { font-weight: 700; }

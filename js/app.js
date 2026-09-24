@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=18';
-import { cargarCopaFacil } from './copafacil.js?v=18';
-import { leerHoja, enviarHoja } from './hoja.js?v=18';
+import { CONFIG } from './config.js?v=19';
+import { cargarCopaFacil } from './copafacil.js?v=19';
+import { leerHoja, enviarHoja } from './hoja.js?v=19';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -862,26 +862,39 @@ function medallasMvp(id) {
 function ultimoMvp() {
   const jugados = (estado.cf?.partidos || []).filter((x) => x.finalizado);
   for (let i = jugados.length - 1; i >= 0; i--) {
-    const mejor = mvpDe(jugados[i]);
-    if (mejor) return { partido: jugados[i], ...mejor };
+    const puestos = puestosPartido(jugados[i]);
+    if (puestos.length) return { partido: jugados[i], puestos };
   }
   return null;
 }
 
+/** El podio del último partido jugado, arriba en Competición. Se queda hasta el siguiente. */
 function pintarMvpMini() {
   const caja = $('#mvp-mini');
-  const m = ultimoMvp();
-  caja.hidden = !m;
-  if (!m) return;
-  caja.title = `MVP${m.partido.jornada ? ` de la jornada ${m.partido.jornada}` : ''}: ${m.j.nombre} · ${m.estrellas} ★`;
+  const r = ultimoMvp();
+  caja.hidden = !r;
+  if (!r) return;
+  const { partido: p, puestos } = r;
+  const { nota } = notasPartido(p.id);
+  const abierta = votacionAbierta(p);
+  const iconos = ['trofeo', 'plata', 'bronce'];
+  caja.title = `Podio${p.jornada ? ` de la jornada ${p.jornada}` : ''} · vs ${rivalDe(p).nombre}`;
   pintar(caja,
-    imagen(m.j.foto),
-    h('span', { class: 'texto-mvp' },
-      h('span', { class: 'etiqueta-mvp', text: `MVP${m.partido.jornada ? ` J${m.partido.jornada}` : ''}` }),
-      h('span', { class: 'nombre', text: nombreCorto(m.j) })),
-    m.nota === null || m.nota === undefined
-      ? h('span', { class: 'nota', text: 'MVP' })
-      : h('span', { class: 'nota' }, nota1(m.nota), h('small', { class: 'de-diez', text: '/10' })));
+    h('p', { class: 'titulo-podio' },
+      `Podio${p.jornada ? ` J${p.jornada}` : ''}`,
+      abierta ? h('small', { text: ' · votación abierta' }) : null),
+    h('ol', { class: 'podio-mini' }, puestos.map((id, i) => {
+      const j = jugadorPorId(id);
+      if (!j) return null;
+      const n = nota(id);
+      return h('li', {},
+        icono(iconos[i]),
+        imagen(j.foto),
+        h('span', { class: 'nombre', text: nombreCorto(j) }),
+        n === null || n === undefined
+          ? null
+          : h('span', { class: 'nota' }, nota1(n), h('small', { class: 'de-diez', text: '/10' })));
+    })));
 }
 
 /** Desplegable "VOTA AL MVP" de un partido ya jugado. */
