@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=21';
-import { cargarCopaFacil } from './copafacil.js?v=21';
-import { leerHoja, enviarHoja } from './hoja.js?v=21';
+import { CONFIG } from './config.js?v=22';
+import { cargarCopaFacil } from './copafacil.js?v=22';
+import { leerHoja, enviarHoja } from './hoja.js?v=22';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -820,22 +820,20 @@ function votacionAbierta(p) {
 }
 
 /**
- * Nota sobre 10: las estrellas recibidas entre todas las que podía recibir,
- * es decir 3 por cada compañero que votó (quitándose a sí mismo). Un 10
- * significa que TODOS los que votaron le dieron las tres estrellas. Así la
- * nota y el puesto en el podio van siempre de la mano.
+ * Nota sobre 10: las estrellas recibidas entre todas las que se repartían,
+ * que son 3 por cada jugador que votó. El divisor es el mismo para todos,
+ * así que quien más estrellas tiene saca siempre mejor nota.
  */
 function notasPartido(partidoId) {
   const { totales, votantes } = votosDe(partidoId);
   const total = Object.values(totales).reduce((s, n) => s + n, 0);
-  const posibles = (id) => (votantes || []).filter((v) => v !== id).length * 3;
+  const posibles = (votantes || []).length * 3;
   return {
     total,
     nota: (id) => {
       const estrellas = totales[id] || 0;
-      const tope = posibles(id);
-      if (!estrellas || !tope) return null;
-      return (estrellas / tope) * 10;
+      if (!estrellas || !posibles) return null;
+      return (estrellas / posibles) * 10;
     },
   };
 }
@@ -849,7 +847,7 @@ function mvpJugador(id) {
     const { totales, votantes } = votosDe(partidoId);
     if (!totales[id]) return;
     estrellas += totales[id];
-    posibles += (votantes || []).filter((v) => v !== id).length * 3;
+    posibles += (votantes || []).length * 3;
     partidos++;
   });
   return { nota: posibles ? (estrellas / posibles) * 10 : null, estrellas, partidos };

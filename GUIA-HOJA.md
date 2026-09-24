@@ -107,9 +107,9 @@ Quien no tenga permiso no ve el botón; y si lo intentara igualmente, el script 
 jugadores **sin PIN**: eligen su nombre (solo la primera vez en cada móvil) y reparten de 1 a 3 estrellas
 a todos los compañeros que jugaron, sin poder votarse a sí mismos. **La votación se cierra dos días
 después del partido**; a partir de ahí el desplegable solo enseña el resultado. Al abrirlo aparece el
-podio con los tres primeros y su **nota sobre 10**: las estrellas recibidas entre todas las que podía
-recibir, o sea 3 por cada compañero que votó. Un 10 significa que **todos** los que votaron le dieron las
-tres estrellas. Así el oro siempre tiene la nota más alta. Esa nota **solo la veis el cuerpo técnico y tú**, en la columna **Nota** de la plantilla y en la ficha de
+podio con los tres primeros y su **nota sobre 10**: las estrellas recibidas entre todas las que se
+repartían, que son **3 por cada jugador que votó**. Si votan 4, se reparten 12 estrellas: 8 estrellas son
+un 6,7. El divisor es el mismo para todos, así que el oro siempre tiene la nota más alta. Esa nota **solo la veis el cuerpo técnico y tú**, en la columna **Nota** de la plantilla y en la ficha de
 cada jugador. Los jugadores no la ven, ni siquiera la suya.
 Lo que sí ve todo el equipo es la columna **MVP**: cuántas veces ha sido cada uno el mejor del partido.
 Eso es un trofeo y motiva; una clasificación con notas, no. El MVP de la última jornada sí se ve nada más entrar en
