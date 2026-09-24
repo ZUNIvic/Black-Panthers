@@ -937,26 +937,34 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 
 /* Podio de la última jornada, junto a la frase de Competición */
 .mvp-mini {
-  display: grid; gap: 4px; margin-left: auto; flex-shrink: 0; max-width: 260px;
-  background: var(--oro); border: 2px solid var(--oro-borde); border-radius: 12px;
-  padding: 7px 9px; color: var(--negro-oro);
+  margin-left: auto; flex-shrink: 0; width: min(300px, 100%); overflow: hidden;
+  background: #fff; border: 2px solid var(--oro-borde); border-radius: 14px; color: #111;
 }
 .mvp-mini .titulo-podio {
-  margin: 0; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--naranja-oro); text-align: center;
+  margin: 0; padding: 6px 8px; background: var(--oro); color: #111;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-align: center;
 }
-.mvp-mini .titulo-podio small { font-size: 0.9em; font-weight: 700; }
-.podio-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
-.podio-mini li { display: flex; align-items: center; gap: 6px; }
-.podio-mini svg { width: 17px; height: 19px; }
+.mvp-mini .titulo-podio small { font-size: 0.92em; font-weight: 700; }
+.podio-mini {
+  list-style: none; margin: 0; padding: 9px 10px; display: grid; gap: 6px; align-items: end;
+  grid-template-columns: 1fr 1.25fr 1fr;
+}
+.podio-mini.de-1 { grid-template-columns: 1fr; }
+.podio-mini.de-2 { grid-template-columns: 1fr 1.25fr; }
+.podio-mini .puesto { display: grid; justify-items: center; gap: 3px; min-width: 0; text-align: center; }
+.podio-mini svg { width: 20px; height: 27px; }
+.podio-mini .p1 svg { width: 30px; height: 35px; }
 .podio-mini img, .podio-mini .foto-vacia {
-  width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1px solid var(--negro-oro); background: var(--oro);
+  width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 2px solid #111; background: #eee;
 }
-.podio-mini .nombre { flex: 1; font-size: 0.8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.podio-mini .p1 img, .podio-mini .p1 .foto-vacia { width: 40px; height: 40px; border-color: #f2c200; border-width: 3px; }
+.podio-mini .nombre { font-size: 0.7rem; font-weight: 700; line-height: 1.1; color: #111; }
+.podio-mini .p1 .nombre { font-size: 0.78rem; font-weight: 800; }
 .podio-mini .nota {
-  font-family: var(--display); font-size: 0.95rem; background: var(--negro-oro); color: var(--oro);
-  border-radius: 999px; padding: 0 7px;
+  width: 100%; font-family: var(--display); font-size: 0.95rem; background: #111; color: var(--oro);
+  border-radius: 999px; padding: 1px 0;
 }
+.podio-mini .p1 .nota { font-size: 1.15rem; }
 .nota .de-diez { font-size: 0.6em; margin-left: 1px; }
 .votacion .designado { font-weight: 700; }
 

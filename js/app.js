@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=20';
-import { cargarCopaFacil } from './copafacil.js?v=20';
-import { leerHoja, enviarHoja } from './hoja.js?v=20';
+import { CONFIG } from './config.js?v=21';
+import { cargarCopaFacil } from './copafacil.js?v=21';
+import { leerHoja, enviarHoja } from './hoja.js?v=21';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -820,20 +820,22 @@ function votacionAbierta(p) {
 }
 
 /**
- * Nota sobre 10: la media de estrellas que le pone cada uno que le vota, sobre 3.
- * Si todos los que te votan te dan las 3 estrellas, sacas un 10.
+ * Nota sobre 10: las estrellas recibidas entre todas las que podía recibir,
+ * es decir 3 por cada compañero que votó (quitándose a sí mismo). Un 10
+ * significa que TODOS los que votaron le dieron las tres estrellas. Así la
+ * nota y el puesto en el podio van siempre de la mano.
  */
 function notasPartido(partidoId) {
-  const { totales, veces } = votosDe(partidoId);
+  const { totales, votantes } = votosDe(partidoId);
   const total = Object.values(totales).reduce((s, n) => s + n, 0);
+  const posibles = (id) => (votantes || []).filter((v) => v !== id).length * 3;
   return {
     total,
     nota: (id) => {
       const estrellas = totales[id] || 0;
-      if (!estrellas) return null;
-      const cuantos = veces?.[id];
-      if (cuantos) return (estrellas / (cuantos * 3)) * 10;
-      return total ? (estrellas / total) * 10 : null; // hoja sin actualizar todavía
+      const tope = posibles(id);
+      if (!estrellas || !tope) return null;
+      return (estrellas / tope) * 10;
     },
   };
 }
@@ -841,20 +843,16 @@ function notasPartido(partidoId) {
 /** Resumen de la temporada de un jugador: nota media, estrellas y partidos votado. */
 function mvpJugador(id) {
   let estrellas = 0;
-  let cuantos = 0;   // veces que le han votado en toda la temporada
+  let posibles = 0; // todo lo que podía recibir en esos partidos
   let partidos = 0;
-  let suma = 0;      // por si la hoja aún no manda "veces"
   Object.keys(estado.hoja?.votos || {}).forEach((partidoId) => {
-    const { totales, veces } = votosDe(partidoId);
+    const { totales, votantes } = votosDe(partidoId);
     if (!totales[id]) return;
-    const total = Object.values(totales).reduce((s, n) => s + n, 0);
     estrellas += totales[id];
-    cuantos += veces?.[id] || 0;
-    if (total) suma += (totales[id] / total) * 10;
+    posibles += (votantes || []).filter((v) => v !== id).length * 3;
     partidos++;
   });
-  if (cuantos) return { nota: (estrellas / (cuantos * 3)) * 10, estrellas, partidos };
-  return { nota: partidos ? suma / partidos : null, estrellas, partidos };
+  return { nota: posibles ? (estrellas / posibles) * 10 : null, estrellas, partidos };
 }
 
 const nota1 = (n) => (n === null || n === undefined ? '–' : n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
@@ -866,7 +864,7 @@ function podio(partidoId) {
   return Object.entries(totales)
     .map(([id, estrellas]) => ({ j: jugadorPorId(id), estrellas, nota: nota(id) }))
     .filter((x) => x.j)
-    .sort((a, b) => b.estrellas - a.estrellas)
+    .sort((a, b) => (b.nota ?? 0) - (a.nota ?? 0) || b.estrellas - a.estrellas)
     .slice(0, 3);
 }
 
@@ -915,6 +913,14 @@ function ultimoMvp() {
   return null;
 }
 
+/** «Victor David M.»: el nombre entero y la inicial del apellido. */
+function nombrePila(j) {
+  const partes = String(j.nombre || '').trim().split(/\s+/).filter(Boolean);
+  if (partes.length < 2) return partes[0] || '';
+  const apellido = partes[partes.length - 1];
+  return `${partes.slice(0, -1).join(' ')} ${apellido[0].toUpperCase()}.`;
+}
+
 /** El podio del último partido jugado, arriba en Competición. Se queda hasta el siguiente. */
 function pintarMvpMini() {
   const caja = $('#mvp-mini');
@@ -926,22 +932,27 @@ function pintarMvpMini() {
   const abierta = votacionAbierta(p);
   const iconos = ['trofeo', 'plata', 'bronce'];
   caja.title = `Podio${p.jornada ? ` de la jornada ${p.jornada}` : ''} · vs ${rivalDe(p).nombre}`;
+
+  const puesto = (id, i) => {
+    const j = jugadorPorId(id);
+    if (!j) return null;
+    const n = nota(id);
+    return h('li', { class: `puesto p${i + 1}` },
+      icono(iconos[i]),
+      imagen(j.foto),
+      h('span', { class: 'nombre', text: nombrePila(j) }),
+      h('span', { class: 'nota', text: n === null || n === undefined ? '–' : nota1(n) }));
+  };
+
+  // En una fila y con el ganador en medio, como un cajón de verdad.
+  const orden = puestos.length === 3 ? [[puestos[1], 1], [puestos[0], 0], [puestos[2], 2]]
+    : puestos.length === 2 ? [[puestos[1], 1], [puestos[0], 0]]
+      : [[puestos[0], 0]];
   pintar(caja,
     h('p', { class: 'titulo-podio' },
       `Podio${p.jornada ? ` J${p.jornada}` : ''}`,
       abierta ? h('small', { text: ' · votación abierta' }) : null),
-    h('ol', { class: 'podio-mini' }, puestos.map((id, i) => {
-      const j = jugadorPorId(id);
-      if (!j) return null;
-      const n = nota(id);
-      return h('li', {},
-        icono(iconos[i]),
-        imagen(j.foto),
-        h('span', { class: 'nombre', text: nombreCorto(j) }),
-        n === null || n === undefined
-          ? null
-          : h('span', { class: 'nota' }, nota1(n), h('small', { class: 'de-diez', text: '/10' })));
-    })));
+    h('ol', { class: `podio-mini de-${orden.length}` }, orden.map(([id, i]) => puesto(id, i))));
 }
 
 /** Desplegable "VOTA AL MVP" de un partido ya jugado. */
