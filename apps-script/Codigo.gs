@@ -46,6 +46,7 @@ const HOJAS = {
   ESTRATEGIA: 'ESTRATEGIA',
   ENTRADAS: 'ENTRADAS',
   PRELISTA: 'PRELISTA',
+  PREENTRENO: 'PREENTRENO',
 };
 
 // Roles del equipo (se pueden poner varios por jugador, separados por comas).
@@ -128,6 +129,10 @@ const ESTRUCTURA = {
   PRELISTA: {
     cabecera: ['Partido ID', 'Fecha partido', 'Rival', 'Jugador ID', 'Jugador', 'Dice', 'Cuándo'],
     anchos: [130, 110, 220, 130, 220, 90, 150],
+  },
+  PREENTRENO: {
+    cabecera: ['Fecha entreno', 'Jugador ID', 'Jugador', 'Dice', 'Cuándo'],
+    anchos: [120, 130, 220, 90, 150],
   },
 };
 
@@ -313,6 +318,7 @@ function datosPublicos_() {
     mvp: leerMvp_(),
     estrategia: leerEstrategia_(),
     prelista: leerPrelista_(),
+    preEntreno: leerPreEntreno_(),
   };
 }
 
@@ -447,6 +453,24 @@ function leerPrelista_() {
   return res;
 }
 
+/** Quién ha dicho que va a los entrenos de la última semana en adelante. */
+function leerPreEntreno_() {
+  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const desde = Utilities.formatDate(new Date(Date.now() - 7 * 86400000), tz, 'yyyy-MM-dd');
+  const res = {};
+  filas_(HOJAS.PREENTRENO).forEach((f) => {
+    const fecha = f['Fecha entreno'] instanceof Date
+      ? Utilities.formatDate(f['Fecha entreno'], tz, 'yyyy-MM-dd')
+      : texto_(f['Fecha entreno']);
+    const jugador = texto_(f['Jugador ID']);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || fecha < desde || !jugador) return;
+    const cuando = f['Cuándo'] instanceof Date ? f['Cuándo'].getTime() : 0;
+    (res[fecha] = res[fecha] || []).push({ id: jugador, dice: normaliza_(f['Dice']) === 'no' ? 'no' : 'voy', cuando: cuando });
+  });
+  Object.keys(res).forEach((k) => res[k].sort((a, b) => a.cuando - b.cuando));
+  return res;
+}
+
 /* ───────────────────────── Web: escritura (staff) ───────────────────────── */
 
 function doPost(e) {
@@ -467,6 +491,21 @@ function doPost(e) {
   if (peticion.accion === 'entrada') {
     if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo' });
     return json_(registrarEntrada_(peticion));
+  }
+
+  // Decir si vas al entreno: también cosa de cada jugador.
+  if (peticion.accion === 'apuntarseEntreno') {
+    if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo' });
+    const cerrojoE = LockService.getScriptLock();
+    cerrojoE.waitLock(20000);
+    let hechoE;
+    try {
+      hechoE = guardarPreEntreno_(peticion);
+    } finally {
+      cerrojoE.releaseLock();
+    }
+    CacheService.getScriptCache().remove('publico');
+    return json_(hechoE);
   }
 
   // Apuntarse (o borrarse) de la prelista del próximo partido: cosa de cada jugador.
@@ -956,6 +995,32 @@ function guardarPrelista_(p) {
   return { ok: true, dice: dice };
 }
 
+/** Un jugador dice si va al entreno de esa fecha. Solo toca su propia fila. */
+function guardarPreEntreno_(p) {
+  const fecha = texto_(p.fecha);
+  const id = texto_(p.jugadorId);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{5,20}$/.test(id)) return { ok: false, error: 'datos_invalidos' };
+  const nombres = {};
+  filas_(HOJAS.JUGADORES).forEach((f) => (nombres[texto_(f['ID CopaFácil'])] = texto_(f['Nombre'])));
+  if (!nombres[id]) return { ok: false, error: 'jugador_desconocido' };
+
+  const hoja = asegurarHoja_(HOJAS.PREENTRENO);
+  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const ultima = ultimaFilaCon_(hoja, 1);
+  if (ultima > 1) {
+    const v = hoja.getRange(2, 1, ultima - 1, 2).getValues();
+    for (let i = v.length - 1; i >= 0; i--) {
+      const f = v[i][0] instanceof Date ? Utilities.formatDate(v[i][0], tz, 'yyyy-MM-dd') : texto_(v[i][0]);
+      if (f === fecha && texto_(v[i][1]) === id) hoja.deleteRow(i + 2);
+    }
+  }
+  if (normaliza_(p.dice) !== 'quitar') {
+    hoja.appendRow([fecha, id, nombres[id], normaliza_(p.dice) === 'no' ? 'No' : 'Voy', new Date()]);
+    hoja.getRange(hoja.getLastRow(), 5).setNumberFormat('dd/mm/yyyy HH:mm');
+  }
+  return { ok: true };
+}
+
 /** Pasar lista de un entreno: crea o actualiza la fila de esa fecha en ENTRENOS. */
 function guardarEntreno_(p) {
   const fecha = texto_(p.fecha);
@@ -1320,6 +1385,7 @@ function prepararHoja() {
       'QUEDADAS / FOTOS: el tercer tiempo. En FOTOS pega el enlace de Google Drive de cada foto, compartida con "cualquiera con el enlace".',
       'ENTRADAS: cada vez que un jugador abre la web. Solo lo ves tú y el cuerpo técnico, desde Equipo.',
       'PRELISTA: quién ha dicho que va a cada partido, por orden. La rellenan los jugadores desde la web.',
+      'PREENTRENO: quién ha dicho que va a cada entreno. También la rellenan ellos, y no cuenta como asistencia: eso es ENTRENOS.',
       'MVP y ESTRATEGIA: las rellena la web (MVP designado a mano y la pizarra de cada partido). No hace falta tocarlas.',
       'VOTOS: los votos al MVP de cada partido. Los rellenan los jugadores desde la web, sin PIN. No hace falta tocarla.',
       'CONVOCATORIAS: la rellena la web (modo staff). Estado: Convocado, No viene o No convocado. Después del partido, lo que quede es quién vino.',

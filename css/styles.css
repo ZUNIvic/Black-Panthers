@@ -1127,3 +1127,6 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .recuento-conf { margin: 0 0 6px; font-size: 0.95rem; }
 .recuento-conf strong { color: var(--verde); }
 .recuento-conf .baja-conf { color: var(--rojo); font-weight: 700; }
+.entreno-desplegable { margin-top: 10px; border-color: var(--oro-borde); }
+.entreno-desplegable summary .jornada-conv { display: inline-flex; align-items: center; gap: 7px; }
+.entreno-desplegable summary svg { color: var(--naranja); width: 18px; height: 18px; }

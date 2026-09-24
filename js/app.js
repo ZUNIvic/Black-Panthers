@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=19';
-import { cargarCopaFacil } from './copafacil.js?v=19';
-import { leerHoja, enviarHoja } from './hoja.js?v=19';
+import { CONFIG } from './config.js?v=20';
+import { cargarCopaFacil } from './copafacil.js?v=20';
+import { leerHoja, enviarHoja } from './hoja.js?v=20';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -351,6 +351,53 @@ function tarjetaEntreno() {
     e.habitual ? h('p', { class: 'nota', text: 'Horario habitual' }) : null,
     acciones,
   ];
+}
+
+/** Quién va al próximo entreno. Sencillo: voy o no voy, y lo ve todo el equipo. */
+function pintarApuntadosEntreno() {
+  const caja = $('#apuntados-entreno');
+  const e = estado.hoja?.entrenos?.proximo;
+  if (!e || !esIso(e.fecha)) return pintar(caja);
+  const lista = estado.hoja.preEntreno?.[e.fecha] || [];
+  const van = lista.filter((x) => x.dice === 'voy' && jugadorPorId(x.id));
+  const no = lista.filter((x) => x.dice === 'no' && jugadorPorId(x.id));
+  const yo = yoSoy();
+  const mio = yo && lista.find((x) => x.id === yo.id);
+  const chip = (x, clase) => {
+    const j = jugadorPorId(x.id);
+    return h('li', {}, h('span', { class: `chip${clase}` }, h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
+  };
+
+  pintar(caja, h('details', { class: 'conv-desplegable entreno-desplegable' },
+    h('summary', {},
+      h('span', { class: 'jornada-conv' }, icono('silbato'), 'Jugadores que van al entreno'),
+      h('span', { class: `cuantos-conv${van.length ? ' vinieron' : ''}`, text: plural(van.length, 'va', 'van') })),
+    h('div', { class: 'convocatoria compacta' },
+      h('p', { class: 'apagado', text: `${diaHoja(e.fecha)}${e.hora ? ` · ${e.hora}` : ''}${e.lugar ? ` · ${e.lugar}` : ''}` }),
+      van.length ? h('ul', { class: 'chips' }, van.map((x) => chip(x, ''))) : h('p', { class: 'apagado', text: 'Todavía no se ha apuntado nadie.' }),
+      no.length ? h('ul', { class: 'chips' }, no.map((x) => chip(x, ' no'))) : null,
+      yo
+        ? h('div', { class: 'fila-acciones' },
+            h('button', { type: 'button', class: `boton${mio?.dice === 'voy' ? '' : '-secundario'}`, onclick: () => apuntarseEntreno(e.fecha, mio?.dice === 'voy' ? 'quitar' : 'voy') },
+              mio?.dice === 'voy' ? '✓ Voy' : 'Voy'),
+            h('button', { type: 'button', class: `boton${mio?.dice === 'no' ? '' : '-secundario'}`, onclick: () => apuntarseEntreno(e.fecha, mio?.dice === 'no' ? 'quitar' : 'no') },
+              mio?.dice === 'no' ? '✗ No voy' : 'No voy'))
+        : h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' }))));
+}
+
+async function apuntarseEntreno(fecha, dice) {
+  const yo = yoSoy();
+  if (!yo) return;
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'apuntarseEntreno', pinEquipo: recuperar(CLAVE_EQUIPO) || '',
+    fecha, jugadorId: yo.id, dice,
+  }).catch(() => null);
+  if (r?.ok) {
+    aviso(dice === 'quitar' ? 'Te has borrado del entreno' : dice === 'voy' ? '¡Apuntado al entreno! ✓' : 'Apuntado como que no vas');
+    cargarHoja();
+  } else {
+    aviso('No se ha podido guardar. Inténtalo de nuevo.', true);
+  }
 }
 
 function pintarProximoEntreno() {
@@ -1852,6 +1899,7 @@ function pintarTodo() {
   aSalvo('pintarAnuncios', () => pintarAnuncios());
   aSalvo('pintarProximoPartido', () => pintarProximoPartido());
   aSalvo('pintarProximoEntreno', () => pintarProximoEntreno());
+  aSalvo('pintarApuntadosEntreno', () => pintarApuntadosEntreno());
   aSalvo('pintarConvocatoriaProxima', () => pintarConvocatoriaProxima());
   aSalvo('pintarVoyRapido', () => pintarVoyRapido());
   aSalvo('pintarEstadisticas', () => pintarEstadisticas());

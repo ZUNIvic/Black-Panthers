@@ -159,6 +159,13 @@ Al entrar, después del PIN, cada uno **elige su nombre** una vez en su móvil. 
 - Se apunta como mucho una entrada por jugador cada media hora, para no llenar la hoja.
 - Queda en la pestaña **ENTRADAS**.
 
+### Quién va al entreno
+
+Debajo del cuadro amarillo del próximo entreno hay un desplegable **«Jugadores que van al entreno»**:
+cada uno pulsa **Voy** o **No voy** y todo el equipo ve la lista. Es solo una previsión, **no cuenta
+como asistencia**: la asistencia de verdad la sigue pasando el cuerpo técnico con «Pasar lista», y es la
+que cuenta para las estadísticas. Queda en la pestaña **PREENTRENO**.
+
 ### La prelista y la lista definitiva
 
 En **Competición → Convocatoria** hay ahora dos listas, las dos visibles para todo el equipo:
