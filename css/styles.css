@@ -789,7 +789,8 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 .votacion[open] summary::after { content: '–'; }
 .cuerpo-votacion { padding: 0 14px 14px; }
 .podio .nota { font-family: var(--display); font-size: 1.15rem; color: var(--texto); background: var(--panel); border-radius: 8px; padding: 1px 8px; }
-.tabla .nota-mvp { font-weight: 800; color: var(--naranja-claro); }
+.tabla .nota-mvp { font-weight: 800; color: var(--naranja-claro); white-space: nowrap; }
+.tabla .estrellas-td { font-weight: 700; color: var(--texto-3); }
 .tabla .trofeos { font-weight: 800; white-space: nowrap; }
 .tabla .trofeos .medalla-cuenta { display: inline-flex; align-items: center; gap: 1px; margin: 0 3px; }
 .tabla .trofeos svg { width: 15px; height: 17px; }

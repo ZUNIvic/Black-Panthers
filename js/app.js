@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=23';
-import { cargarCopaFacil } from './copafacil.js?v=23';
-import { leerHoja, enviarHoja } from './hoja.js?v=23';
+import { CONFIG } from './config.js?v=24';
+import { cargarCopaFacil } from './copafacil.js?v=24';
+import { leerHoja, enviarHoja } from './hoja.js?v=24';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -783,10 +783,11 @@ function pintarPlantilla() {
       verNotas
         ? (() => {
             const m = mvpJugador(j.id);
+            if (!m.estrellas) return h('td', { class: 'cero', text: '–', title: 'Sin votos todavía' });
             return h('td', {
-              class: m.estrellas ? 'nota-mvp' : 'cero', text: m.estrellas || '–',
-              title: m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')} votados` : 'Sin votos todavía',
-            });
+              class: 'nota-mvp',
+              title: `${nota1(m.nota)} sobre 10 · ${m.estrellas} ★ en ${plural(m.partidos, 'partido votado', 'partidos votados')}`,
+            }, nota1(m.nota), h('small', { class: 'estrellas-td', text: ` · ${m.estrellas}★` }));
           })()
         : null);
   }));
@@ -1192,7 +1193,7 @@ function abrirFicha(id) {
       })(),
       // La nota es solo para el cuerpo técnico: ni la suya propia ven los jugadores.
       permitido('notas')
-        ? (() => { const m = mvpJugador(id); return datoFicha(m.estrellas, 'Estrellas MVP', m.partidos ? `en ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
+        ? (() => { const m = mvpJugador(id); return datoFicha(nota1(m.nota), 'Nota MVP', m.partidos ? `${m.estrellas} ★ en ${plural(m.partidos, 'partido', 'partidos')}` : 'sin votos'); })()
         : null),
     lesion
       ? h('p', { class: 'aviso-ficha', text: `${lesion.estado === 'duda' ? 'Duda' : 'Baja'}${lesion.detalle ? `: ${lesion.detalle}` : ''}${esIso(lesion.vuelta) ? ` · vuelta prevista ${diaHoja(lesion.vuelta, { day: 'numeric', month: 'long' })}` : ''}` })
