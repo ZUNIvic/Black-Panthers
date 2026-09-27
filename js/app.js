@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=25';
-import { cargarCopaFacil } from './copafacil.js?v=25';
-import { leerHoja, enviarHoja } from './hoja.js?v=25';
+import { CONFIG } from './config.js?v=26';
+import { cargarCopaFacil } from './copafacil.js?v=26';
+import { leerHoja, enviarHoja } from './hoja.js?v=26';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -2279,15 +2279,16 @@ async function guardarLista() {
 function abrirConvocatoria(p) {
   const g = gruposConvocatoria(p);
   const pasado = p.finalizado;
-  // Salen todos, también los marcados como no activos: alguno puede volver.
-  const plantilla = [...jugadores(), ...plantillaCompleta().filter((j) => j.activo === false)];
+  // Solo los activos. Un no activo únicamente sale si ya estaba en la
+  // convocatoria, para poder sacarlo.
+  const yaEstaba = (j) => g && (g.convocados.includes(j.id) || g.noVienen.includes(j.id));
+  const plantilla = [...jugadores(), ...plantillaCompleta().filter((j) => j.activo === false && yaEstaba(j))];
   const seleccion = new Map(plantilla.map((j) => {
     if (g) {
       const valor = g.convocados.includes(j.id) ? 'convocado' : g.noVienen.includes(j.id) ? 'no_viene' : 'no_convocado';
       return [j.id, valor];
     }
-    // Sin convocatoria: los activos convocados menos las bajas, que no vienen.
-    if (j.activo === false) return [j.id, 'no_convocado'];
+    // Sin convocatoria: todos convocados menos las bajas, que no vienen.
     return [j.id, lesionDe(j.id)?.estado === 'baja' ? 'no_viene' : 'convocado'];
   }));
   const rival = rivalDe(p);
@@ -2817,6 +2818,8 @@ async function guardarFrase() {
 
 function prepararStaff() {
   document.querySelector('[data-staff]').addEventListener('click', alternarStaff);
+  // Red de seguridad: que el formulario del PIN no navegue nunca con el PIN en la dirección.
+  $('#form-pin').addEventListener('submit', (ev) => ev.preventDefault());
   $('#guardar-lista').addEventListener('click', guardarLista);
   document.querySelectorAll('[data-todos]').forEach((b) => b.addEventListener('click', () => {
     const valor = b.dataset.todos === 'si' ? lista.estados[0].valor : lista.estados[lista.estados.length - 1].valor;
