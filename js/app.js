@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=26';
-import { cargarCopaFacil } from './copafacil.js?v=26';
-import { leerHoja, enviarHoja } from './hoja.js?v=26';
+import { CONFIG } from './config.js?v=27';
+import { cargarCopaFacil } from './copafacil.js?v=27';
+import { leerHoja, enviarHoja } from './hoja.js?v=27';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -1468,10 +1468,10 @@ const rolConocido = (r) => ROLES.find((x) => normalizaTexto(x) === normalizaText
 const rolesDe = (j) => (j.roles || []).map(rolConocido);
 
 /** Nombre corto para Roles del equipo: el que se haya puesto o, si no hay, inicial + apellido ("S. Fernandez"). */
+/** En toda la web: el nombre entero y la inicial del apellido («Victor David M.»). */
 function nombreCorto(j) {
   if (j.nombreCorto) return j.nombreCorto;
-  const partes = j.nombre.split(' ').filter(Boolean);
-  return partes.length > 1 ? `${partes[0][0]}. ${partes[partes.length - 1]}` : j.nombre;
+  return nombrePila(j);
 }
 
 function persona(j, cargo) {
