@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=24';
-import { cargarCopaFacil } from './copafacil.js?v=24';
-import { leerHoja, enviarHoja } from './hoja.js?v=24';
+import { CONFIG } from './config.js?v=25';
+import { cargarCopaFacil } from './copafacil.js?v=25';
+import { leerHoja, enviarHoja } from './hoja.js?v=25';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -2248,8 +2248,8 @@ function abrirLista({ titulo, subtitulo = '', ayuda = '', estados, seleccion, fe
 
 function pintarLista() {
   const { seleccion, estados } = lista;
-  const activos = jugadores();
-  pintar($('#lista-jugadores'), activos.map((j) => {
+  const enLista = [...seleccion.keys()].map(jugadorPorId).filter(Boolean);
+  pintar($('#lista-jugadores'), enLista.map((j) => {
     const i = Math.max(0, estados.findIndex((e) => e.valor === seleccion.get(j.id)));
     const e = estados[i];
     const marcas = marcasJugador(j, { proximo: false });
@@ -2259,14 +2259,16 @@ function pintarLista() {
         onclick: () => { seleccion.set(j.id, estados[(i + 1) % estados.length].valor); pintarLista(); },
       },
       h('span', { class: 'dorsal', text: j.dorsal ?? '–' }),
-      h('span', { class: 'nombre' }, j.nombre, marcas.length ? h('small', {}, h('span', { class: 'marcas marcas-lista' }, marcas)) : null),
+      h('span', { class: 'nombre' }, j.nombre,
+        j.activo === false ? h('small', { class: 'apagado', text: ' · no activo' }) : null,
+        marcas.length ? h('small', {}, h('span', { class: 'marcas marcas-lista' }, marcas)) : null),
       h('span', { class: 'marca-conv', text: e.etiqueta })));
   }));
   $('#contador-lista').textContent = estados
-    .map((e) => ({ e, n: activos.filter((j) => seleccion.get(j.id) === e.valor).length }))
+    .map((e) => ({ e, n: enLista.filter((j) => seleccion.get(j.id) === e.valor).length }))
     .filter(({ n }) => n)
     .map(({ e, n }) => `${n} ${n === 1 ? e.singular : e.plural}`)
-    .join(' · ') || `0 de ${activos.length}`;
+    .join(' · ') || `0 de ${enLista.length}`;
 }
 
 async function guardarLista() {
@@ -2277,12 +2279,15 @@ async function guardarLista() {
 function abrirConvocatoria(p) {
   const g = gruposConvocatoria(p);
   const pasado = p.finalizado;
-  const seleccion = new Map(jugadores().map((j) => {
+  // Salen todos, también los marcados como no activos: alguno puede volver.
+  const plantilla = [...jugadores(), ...plantillaCompleta().filter((j) => j.activo === false)];
+  const seleccion = new Map(plantilla.map((j) => {
     if (g) {
       const valor = g.convocados.includes(j.id) ? 'convocado' : g.noVienen.includes(j.id) ? 'no_viene' : 'no_convocado';
       return [j.id, valor];
     }
-    // Sin convocatoria: todos convocados menos las bajas, que no vienen.
+    // Sin convocatoria: los activos convocados menos las bajas, que no vienen.
+    if (j.activo === false) return [j.id, 'no_convocado'];
     return [j.id, lesionDe(j.id)?.estado === 'baja' ? 'no_viene' : 'convocado'];
   }));
   const rival = rivalDe(p);
@@ -2815,7 +2820,7 @@ function prepararStaff() {
   $('#guardar-lista').addEventListener('click', guardarLista);
   document.querySelectorAll('[data-todos]').forEach((b) => b.addEventListener('click', () => {
     const valor = b.dataset.todos === 'si' ? lista.estados[0].valor : lista.estados[lista.estados.length - 1].valor;
-    jugadores().forEach((j) => lista.seleccion.set(j.id, valor));
+    [...lista.seleccion.keys()].forEach((id) => lista.seleccion.set(id, valor));
     pintarLista();
   }));
   $('#com-anadir').addEventListener('click', () => anadirFilaComentario());
