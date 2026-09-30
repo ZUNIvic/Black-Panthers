@@ -6,9 +6,7 @@ Web estática (HTML + CSS + JavaScript, sin instalaciones ni compilación) para 
   (del equipo y jugador a jugador, con los comentarios de cada jornada), plantilla con la ficha de cada
   jugador, lesionados y normativa interna.
 - **Competición**: MVP de la última jornada, próximo entreno y partido, instrucciones del cuerpo técnico,
-  prelista (la hacen los jugadores) y lista definitiva del cuerpo técnico, **estrategia** (pizarra con el campo de fútbol 7, la alineación y flechas de ataque y
-  defensa), votación al MVP (la hacen los jugadores y se cierra dos días después del partido; el podio
-  sale con nota sobre 10), calendario, clasificación y resultados.
+  prelista (la hacen los jugadores) y lista definitiva del cuerpo técnico, votación al MVP (secreta: votan los jugadores, el recuento solo lo ve el cuerpo técnico y el podio lo publica él), calendario, clasificación y resultados.
 - **Tesorería**: cuotas y multas pendientes de cada jugador («Al día» si no debe nada).
 - **Roles del equipo**: cuerpo técnico, capitanes, junta directiva y miembros fundadores.
 - **Tercer tiempo**: quedadas, cumpleaños y fotos (se suben desde el móvil y se guardan en Drive).

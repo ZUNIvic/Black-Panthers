@@ -1139,3 +1139,29 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .entreno-desplegable { margin-top: 10px; border-color: var(--oro-borde); }
 .entreno-desplegable summary .jornada-conv { display: inline-flex; align-items: center; gap: 7px; }
 .entreno-desplegable summary svg { color: var(--naranja); width: 18px; height: 18px; }
+
+/* ───────── Votación secreta ───────── */
+.podio-secreto { display: grid; gap: 8px; justify-items: center; margin: 10px 0; }
+.podio-secreto .medalla-vacia { display: inline-flex; align-items: center; gap: 2px; margin: 0 6px; opacity: 0.85; }
+.podio-secreto .medalla-vacia svg { width: 26px; height: 30px; }
+.podio-secreto .incognita { font-family: var(--display); font-size: 1.2rem; color: var(--negro-oro); }
+.podio-secreto .apagado { text-align: center; max-width: 34ch; }
+.recuento-staff {
+  margin-top: 12px; padding: 10px; border-radius: var(--radio);
+  background: #111; color: var(--texto); display: grid; gap: 8px;
+}
+.recuento-staff h4 {
+  display: flex; align-items: center; gap: 6px; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--naranja);
+}
+.recuento-staff h4 svg { width: 15px; height: 15px; }
+.recuento-staff .apagado { color: var(--texto-3); font-size: 0.82rem; }
+.lista-votos { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: v; }
+.lista-votos li { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+.lista-votos li::before { counter-increment: v; content: counter(v) '.'; color: var(--texto-3); font-weight: 700; }
+.lista-votos .nombre { flex: 1; font-weight: 600; }
+.lista-votos .estrellas { font-family: var(--display); color: var(--naranja); }
+.podio-elegido { display: grid; gap: 6px; }
+.podio-elegido .elegir-mvp { margin-top: 0; gap: 6px; }
+.podio-elegido .elegir-mvp svg { width: 20px; height: 24px; }
+.podio-elegido select { background: var(--negro); color: var(--texto); border: 1px solid var(--borde); }

@@ -115,8 +115,8 @@ const ESTRUCTURA = {
     anchos: [130, 130, 200, 130, 200, 90, 150],
   },
   MVP: {
-    cabecera: ['Partido ID', 'Jornada', 'Rival', 'Jugador ID', 'Jugador', 'Actualizado'],
-    anchos: [130, 80, 220, 130, 220, 150],
+    cabecera: ['Partido ID', 'Jornada', 'Rival', 'Puesto', 'Jugador ID', 'Jugador', 'Actualizado'],
+    anchos: [130, 80, 220, 80, 130, 220, 150],
   },
   ESTRATEGIA: {
     cabecera: ['Partido ID', 'Tipo', 'Jugador ID', 'Jugador', 'X', 'Y', 'X2', 'Y2', 'Actualizado'],
@@ -314,7 +314,6 @@ function datosPublicos_() {
       cuarto: texto_(ajustes['Cuarto entrenador']),
     },
     convocatorias: leerConvocatorias_(),
-    votos: leerVotos_(),
     mvp: leerMvp_(),
     estrategia: leerEstrategia_(),
     prelista: leerPrelista_(),
@@ -407,14 +406,21 @@ function leerVotos_() {
   return res;
 }
 
-/** MVP designado a mano por el cuerpo técnico: partido → jugador. */
+/**
+ * El podio que ha decidido el cuerpo técnico: partido → [oro, plata, bronce].
+ * Es lo único público de la votación; las estrellas no salen de aquí.
+ */
 function leerMvp_() {
   const res = {};
   filas_(HOJAS.MVP).forEach((f) => {
     const partido = texto_(f['Partido ID']);
     const jugador = texto_(f['Jugador ID']);
-    if (partido && jugador) res[partido] = jugador;
+    const puesto = Math.min(3, Math.max(1, Math.round(Number(f['Puesto']) || 1)));
+    if (!partido || !jugador) return;
+    const podio = (res[partido] = res[partido] || []);
+    podio[puesto - 1] = jugador;
   });
+  Object.keys(res).forEach((k) => (res[k] = res[k].filter(Boolean)));
   return res;
 }
 
@@ -586,6 +592,7 @@ const PERMISOS = {
   estrategia: ['staff'],    // la pizarra es del cuerpo técnico
   mvp: ['staff'],
   entradas: ['staff'], // quién entra en la web: solo el cuerpo técnico y tú
+  votos: ['staff'],    // el recuento de la votación, que es secreto para los jugadores
   cambiarPin: ['staff', 'tesoreria'], // cada uno solo el suyo (se comprueba en doPost)
 };
 
@@ -604,6 +611,7 @@ const ACCIONES = {
   subirFoto: subirFoto_,
   pines: verPines_,
   entradas: resumenEntradas_,
+  votos: verVotos_,
   mvp: guardarMvp_,
   estrategia: guardarEstrategia_,
 };
@@ -814,19 +822,36 @@ function guardarVoto_(p) {
   return { ok: true, guardados: nuevas.length };
 }
 
-/** MVP designado a mano (para partidos sin votación). Sin jugador, se quita. */
+/**
+ * El podio que decide el cuerpo técnico: hasta tres jugadores, en orden.
+ * Sin jugadores, se borra y el partido se queda sin podio.
+ */
 function guardarMvp_(p) {
   const partido = texto_(p.partidoId);
   if (!/^\d{5,20}$/.test(partido)) return { ok: false, error: 'datos_invalidos' };
+  const pedidos = Array.isArray(p.jugadores) ? p.jugadores : [p.jugadorId];
+  const ids = [];
+  pedidos.slice(0, 3).forEach((x) => {
+    const id = texto_(x);
+    if (id && ids.indexOf(id) < 0) ids.push(id);
+  });
+
   const hoja = asegurarHoja_(HOJAS.MVP);
   borrarFilasDe_(hoja, partido);
-  const id = texto_(p.jugadorId);
-  if (!id) return { ok: true, guardados: 0 };
-  const nombres = nombresPorId_([id]);
-  if (!nombres[id]) return { ok: false, error: 'jugador_desconocido' };
-  hoja.appendRow([partido, texto_(p.jornada), texto_(p.rival), id, nombres[id], new Date()]);
-  hoja.getRange(hoja.getLastRow(), 6).setNumberFormat('dd/mm/yyyy HH:mm');
-  return { ok: true, guardados: 1 };
+  if (!ids.length) return { ok: true, guardados: 0 };
+
+  const nombres = nombresPorId_(ids);
+  const ahora = new Date();
+  const filas = [];
+  ids.forEach((id) => {
+    if (!nombres[id]) return;
+    filas.push([partido, texto_(p.jornada), texto_(p.rival), filas.length + 1, id, nombres[id], ahora]);
+  });
+  if (!filas.length) return { ok: false, error: 'jugador_desconocido' };
+  const inicio = ultimaFilaCon_(hoja, 1) + 1;
+  hoja.getRange(inicio, 1, filas.length, 7).setValues(filas);
+  hoja.getRange(inicio, 7, filas.length, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+  return { ok: true, guardados: filas.length };
 }
 
 /** La pizarra de un partido: posiciones de los jugadores y flechas. */
@@ -937,6 +962,11 @@ function registrarEntrada_(p) {
   hoja.appendRow([id, nombres[id], new Date()]);
   hoja.getRange(hoja.getLastRow(), 3).setNumberFormat('dd/mm/yyyy HH:mm');
   return { ok: true };
+}
+
+/** El recuento de la votación. Solo para el cuerpo técnico: para los jugadores es secreto. */
+function verVotos_() {
+  return { ok: true, votos: leerVotos_() };
 }
 
 /** Para el cuerpo técnico: cuántas veces ha entrado cada jugador y cuándo fue la última. */
@@ -1386,7 +1416,9 @@ function prepararHoja() {
       'ENTRADAS: cada vez que un jugador abre la web. Solo lo ves tú y el cuerpo técnico, desde Equipo.',
       'PRELISTA: quién ha dicho que va a cada partido, por orden. La rellenan los jugadores desde la web.',
       'PREENTRENO: quién ha dicho que va a cada entreno. También la rellenan ellos, y no cuenta como asistencia: eso es ENTRENOS.',
-      'MVP y ESTRATEGIA: las rellena la web (MVP designado a mano y la pizarra de cada partido). No hace falta tocarlas.',
+      'MVP: el podio que publica el cuerpo técnico (1 oro, 2 plata, 3 bronce). Lo rellena la web.',
+      'VOTOS: es secreto para los jugadores; solo lo ve el cuerpo técnico desde la web.',
+      'ESTRATEGIA: la rellena la web. No hace falta tocarla.',
       'VOTOS: los votos al MVP de cada partido. Los rellenan los jugadores desde la web, sin PIN. No hace falta tocarla.',
       'CONVOCATORIAS: la rellena la web (modo staff). Estado: Convocado, No viene o No convocado. Después del partido, lo que quede es quién vino.',
     ];

@@ -103,17 +103,18 @@ Quien no tenga permiso no ve el botón; y si lo intentara igualmente, el script 
 | Roles | **Editar roles** | Cuerpo técnico, capitanes, junta, fundadores y nombres cortos. |
 | Tercer tiempo | **Editar quedadas / cumpleaños / fotos** | Quedadas, cumpleaños (día y mes) y fotos. |
 
-**La votación al MVP**: en cada partido ya jugado sale un desplegable dorado «VOTA AL MVP». La usan los
-jugadores **sin PIN**: eligen su nombre (solo la primera vez en cada móvil) y reparten de 1 a 3 estrellas
-a todos los compañeros que jugaron, sin poder votarse a sí mismos. **La votación se cierra dos días
-después del partido**; a partir de ahí el desplegable solo enseña el resultado. Al abrirlo aparece el
-podio con los tres primeros y las **estrellas** que ha recibido cada uno. Nada de notas sobre 10: un
-recuento de estrellas no se lee como un aprobado o un suspenso, y es lo mismo que ordena el podio. Las **estrellas de la temporada** de cada jugador las veis **solo el cuerpo técnico y tú**, en la columna
-**★** de la plantilla y en la ficha. Los jugadores no la ven, ni siquiera la suya.
-Lo que sí ve todo el equipo es la columna **MVP**: cuántas veces ha sido cada uno el mejor del partido.
-Eso es un trofeo y motiva; una clasificación con notas, no. El MVP de la última jornada sí se ve nada más entrar en
-**Competición**, para todos. Se puede cambiar el voto mientras esté abierta: el último sustituye al anterior. Todo
-queda en la pestaña **VOTOS**.
+**La votación al MVP es secreta**. En cada partido jugado, los jugadores reparten de 1 a 3 estrellas
+entre los compañeros que jugaron, sin poder votarse a sí mismos, y la votación **se cierra dos días
+después del partido**. Pero:
+
+- **Ningún jugador ve estrellas**, ni las suyas ni las de nadie. Mientras la votación está abierta solo
+  ven las tres medallas con un interrogante.
+- **El recuento solo lo ve el cuerpo técnico**, dentro del desplegable del partido, pulsando «Ver el
+  recuento». No viaja siquiera en los datos que recibe la web de los jugadores: es secreto de verdad.
+- **El podio lo decide el cuerpo técnico**: tres desplegables (oro, plata y bronce) que vienen ya
+  rellenados con los más votados. En cuanto se toca uno, el podio queda publicado y es lo que ve el
+  equipo, en el partido y arriba en Competición.
+- Los votos quedan en la pestaña **VOTOS** y el podio publicado, en **MVP**.
 
 **La ficha de cada jugador**: en la plantilla, al tocar a un jugador se abre su ficha con todas sus
 estadísticas (partidos, % de partidos, faltas, entrenos, goles, tarjetas, convocatorias y nota MVP), sus puntos

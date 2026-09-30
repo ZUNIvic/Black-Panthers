@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=27';
-import { cargarCopaFacil } from './copafacil.js?v=27';
-import { leerHoja, enviarHoja } from './hoja.js?v=27';
+import { CONFIG } from './config.js?v=29';
+import { cargarCopaFacil } from './copafacil.js?v=29';
+import { leerHoja, enviarHoja } from './hoja.js?v=29';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -42,6 +42,7 @@ const ICONOS = {
   trofeo: '<svg viewBox="0 0 24 28"><path d="M6 2h12v7a6 6 0 0 1-12 0Z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/><path d="M6 4H3v2a4 4 0 0 0 3 3.8M18 4h3v2a4 4 0 0 1-3 3.8" fill="none" stroke="#8a6d00" stroke-width="1.4"/><path d="M11 15h2v4h-2z" fill="#8a6d00" stroke="none"/><path d="M7 21h10v3H7z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/></svg>',
   plata: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#7a7a7a" stroke="none"/><circle cx="11" cy="21" r="8" fill="#d8d8d8" stroke="#8c8c8c" stroke-width="1.5"/></svg>',
   bronce: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#8a4b1f" stroke="none"/><circle cx="11" cy="21" r="8" fill="#c87f3a" stroke="#7a4517" stroke-width="1.5"/></svg>',
+  candado: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12Z"/><path d="M9.2 9.4c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.6 1.4c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6.3.5.8 1.1 1.5 1.5.3.2.5.2.7 0l.5-.5c.2-.2.4-.2.6-.1l1.3.7c.4.2.4.4.4.6 0 .5-.4 1.1-1 1.3-.8.3-1.9 0-3.2-.8-1.3-.9-2.2-2-2.7-3-.4-.9-.3-1.7.1-2.3Z"/></svg>',
 };
 
@@ -151,6 +152,7 @@ const PERMISOS = {
   mvp: ['staff'], // el MVP elegido a mano
   notas: ['staff'], // las notas del MVP en la plantilla
   entradas: ['staff'], // quién entra en la web
+  votos: ['staff'],    // el recuento de la votación, secreto para los jugadores
   mensajeTecnico: ['staff'], // las instrucciones del cuerpo técnico
   pinStaff: ['staff'],        // el míster cambia su propio PIN
   pinTesoreria: ['tesoreria'], // el tesorero, el suyo
@@ -813,11 +815,26 @@ function pintarLesionados() {
 /* Votación al MVP del partido: la hacen los jugadores, sin PIN. Se cierra dos días después. */
 
 const CLAVE_YO = 'bp_yo';
+const votadoEn = (p) => `bp_votado_${p.id}`;
 const DIAS_VOTACION = 2;
 
 let votacion = null; // { partido, votos: Map(id → estrellas) }
 
-const votosDe = (partidoId) => estado.hoja?.votos?.[partidoId] || { totales: {}, veces: {}, votantes: [] };
+// El recuento es secreto: solo lo tiene el cuerpo técnico, y lo pide aparte.
+const votosDe = (partidoId) => estado.votos?.[partidoId] || { totales: {}, veces: {}, votantes: [] };
+
+async function cargarVotos() {
+  if (!permitido('votos') || !hayHoja()) return;
+  try {
+    const r = await enviarHoja(CONFIG.hoja, { accion: 'votos', pin: recuperar(CLAVE_PIN) });
+    if (r.ok) {
+      estado.votos = r.votos;
+      pintarTodo();
+    }
+  } catch {
+    /* si no se pueden leer, el cuerpo técnico simplemente no ve el recuento */
+  }
+}
 const yoSoy = () => jugadorPorId(recuperar(CLAVE_YO));
 
 /** La votación se cierra dos días después del partido (contando el día del partido). */
@@ -850,7 +867,7 @@ function mvpJugador(id) {
   let estrellas = 0;
   let posibles = 0; // todo lo que podía recibir en esos partidos
   let partidos = 0;
-  Object.keys(estado.hoja?.votos || {}).forEach((partidoId) => {
+  Object.keys(estado.votos || {}).forEach((partidoId) => {
     const { totales, votantes } = votosDe(partidoId);
     if (!totales[id]) return;
     estrellas += totales[id];
@@ -873,28 +890,19 @@ function podio(partidoId) {
     .slice(0, 3);
 }
 
-const mvpDesignado = (partidoId) => jugadorPorId(estado.hoja?.mvp?.[partidoId]);
-
-/** El MVP de un partido: el que designó el cuerpo técnico o, si no, el más votado. */
-function mvpDe(p) {
-  if (!p) return null;
-  const aMano = mvpDesignado(p.id);
-  if (aMano) {
-    const { nota } = notasPartido(p.id);
-    return { j: aMano, estrellas: votosDe(p.id).totales[aMano.id] || 0, nota: nota(aMano.id), aMano: true };
-  }
-  return podio(p.id)[0] || null;
-}
-
 /**
- * El podio de un partido, de oro a bronce. Si el MVP lo puso el cuerpo técnico,
- * ese va primero y detrás los más votados.
+ * El podio oficial de un partido: el que ha publicado el cuerpo técnico.
+ * La votación solo les sirve de ayuda; lo que ve el equipo es esto.
  */
 function puestosPartido(p) {
-  const mejor = mvpDe(p);
-  const lista = mejor ? [mejor.j.id] : [];
-  podio(p.id).forEach((x) => { if (!lista.includes(x.j.id)) lista.push(x.j.id); });
-  return lista.slice(0, 3);
+  const oficial = p ? estado.hoja?.mvp?.[p.id] : null;
+  return (Array.isArray(oficial) ? oficial : [oficial]).filter((id) => id && jugadorPorId(id)).slice(0, 3);
+}
+
+/** El MVP oficial de un partido. */
+function mvpDe(p) {
+  const j = jugadorPorId(puestosPartido(p)[0]);
+  return j ? { j } : null;
 }
 
 /** Medallero de un jugador. Lo ve todo el equipo: son trofeos, no notas. */
@@ -933,8 +941,6 @@ function pintarMvpMini() {
   caja.hidden = !r;
   if (!r) return;
   const { partido: p, puestos } = r;
-  const estrellas = (id) => votosDe(p.id).totales[id] || 0;
-  const abierta = votacionAbierta(p);
   const iconos = ['trofeo', 'plata', 'bronce'];
   caja.title = `Podio${p.jornada ? ` de la jornada ${p.jornada}` : ''} · vs ${rivalDe(p).nombre}`;
 
@@ -944,8 +950,7 @@ function pintarMvpMini() {
     return h('li', { class: `puesto p${i + 1}` },
       icono(iconos[i]),
       imagen(j.foto),
-      h('span', { class: 'nombre', text: nombrePila(j) }),
-      h('span', { class: 'nota', text: `${estrellas(id)} ★` }));
+      h('span', { class: 'nombre', text: nombrePila(j) }));
   };
 
   // En una fila y con el ganador en medio, como un cajón de verdad.
@@ -953,71 +958,105 @@ function pintarMvpMini() {
     : puestos.length === 2 ? [[puestos[1], 1], [puestos[0], 0]]
       : [[puestos[0], 0]];
   pintar(caja,
-    h('p', { class: 'titulo-podio' },
-      `Podio${p.jornada ? ` J${p.jornada}` : ''}`,
-      abierta ? h('small', { text: ' · votación abierta' }) : null),
+    h('p', { class: 'titulo-podio', text: `Podio${p.jornada ? ` J${p.jornada}` : ''}` }),
     h('ol', { class: `podio-mini de-${orden.length}` }, orden.map(([id, i]) => puesto(id, i))));
 }
 
-/** Desplegable "VOTA AL MVP" de un partido ya jugado. */
+/**
+ * Desplegable del MVP. Los jugadores nunca ven estrellas: mientras la votación
+ * está abierta solo ven las medallas sin nombres, y al cerrarse, el podio que
+ * publica el cuerpo técnico.
+ */
 function bloqueVotacion(p, { abierto = false } = {}) {
   if (!p?.finalizado || !hayHoja()) return null;
-  const { votantes } = votosDe(p.id);
-  const yo = yoSoy();
-  const yaVote = yo && votantes.includes(yo.id);
-  const tres = podio(p.id);
-  const mejor = mvpDe(p);
+  const oficial = puestosPartido(p);
   const sePuede = votacionAbierta(p);
+  const staff = permitido('mvp');
+  const yaVote = recuperar(votadoEn(p)) === true;
+  const mejor = jugadorPorId(oficial[0]);
 
-  return h('details', { class: 'votacion', open: abierto || (sePuede && !tres.length) },
+  const medallas = ['trofeo', 'plata', 'bronce'];
+  const podioOficial = oficial.length
+    ? h('ol', { class: 'podio' }, oficial.map((id, i) => {
+        const j = jugadorPorId(id);
+        return h('li', { class: `puesto-${i + 1}` },
+          h('span', { class: 'medalla' }, icono(medallas[i])),
+          imagen(j.foto),
+          h('span', { class: 'nombre', text: nombreCorto(j) }));
+      }))
+    : null;
+
+  // Sin podio publicado: se ven las medallas, pero sin nombres.
+  const enSecreto = h('div', { class: 'podio-secreto' },
+    medallas.map((m) => h('span', { class: 'medalla-vacia' }, icono(m), h('span', { class: 'incognita', text: '?' }))),
+    h('p', { class: 'apagado', text: sePuede
+      ? 'La votación es secreta. El cuerpo técnico publicará el podio cuando se cierre.'
+      : 'Votación cerrada. El cuerpo técnico publicará el podio.' }));
+
+  return h('details', { class: 'votacion', open: abierto || (sePuede && !oficial.length) },
     h('summary', {},
       h('span', { class: 'titulo-votacion' },
-        mejor ? imagen(mejor.j.foto, '', 'foto-mvp') : icono('estrella'),
+        mejor ? imagen(mejor.foto, '', 'foto-mvp') : icono('estrella'),
         h('span', { class: 'texto-votacion' },
           h('span', { class: 'que', text: sePuede ? 'Vota al MVP' : 'MVP del partido' }),
-          mejor ? h('span', { class: 'ganador', text: nombreCorto(mejor.j) }) : null)),
-      h('span', { class: 'apagado', text: votantes.length ? plural(votantes.length, 'voto', 'votos') : 'sin votos' })),
+          mejor ? h('span', { class: 'ganador', text: nombreCorto(mejor) }) : null)),
+      h('span', { class: 'apagado', text: sePuede ? (yaVote ? 'ya has votado' : 'vota tú también') : '' })),
     h('div', { class: 'cuerpo-votacion' },
       h('p', { class: 'apagado', text: `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rivalDe(p).nombre}` }),
-      tres.length
-        ? h('ol', { class: 'podio' }, tres.map((x, i) =>
-            h('li', { class: `puesto-${i + 1}` },
-              h('span', { class: 'medalla' }, icono(['trofeo', 'plata', 'bronce'][i])),
-              imagen(x.j.foto),
-              h('span', { class: 'nombre', text: nombreCorto(x.j) }),
-              h('span', { class: 'estrellas', text: `${x.estrellas} ★` }))))
-        : h('p', { class: 'apagado', text: sePuede ? 'Todavía no ha votado nadie. ¡Sé el primero!' : 'Nadie votó en este partido.' }),
-      mejor?.aMano
-        ? h('p', { class: 'designado', text: `MVP del partido: ${mejor.j.nombre}, elegido por el cuerpo técnico.` })
-        : null,
-      permitido('mvp') ? selectorMvp(p) : null,
+      podioOficial || enSecreto,
       sePuede
         ? h('div', { class: 'fila-acciones' },
             h('button', { type: 'button', class: 'boton', onclick: () => abrirVotacion(p) }, yaVote ? 'Cambiar mi voto' : 'Votar'),
             h('span', { class: 'apagado', text: `Se cierra ${cuantoFaltaCierre(p)}` }))
-        : h('p', { class: 'apagado', text: 'La votación está cerrada (se cierra dos días después del partido).' })));
+        : null,
+      staff ? recuentoStaff(p) : null));
 }
 
-/** El cuerpo técnico designa al MVP de un partido (útil si no hubo votación). */
-function selectorMvp(p) {
-  const actual = mvpDesignado(p.id);
-  return h('label', { class: 'elegir-mvp' },
-    h('span', { text: 'MVP a mano:' }),
-    h('select', { onchange: (ev) => guardarMvp(p, ev.target.value) },
-      h('option', { value: '', text: '— Sin designar —', selected: !actual }),
-      jugadores().map((j) => h('option', { value: j.id, text: `${j.dorsal ?? '–'} · ${j.nombre}`, selected: actual?.id === j.id }))));
+/** Solo para el cuerpo técnico: el recuento de la votación y el podio a publicar. */
+function recuentoStaff(p) {
+  const { votantes } = votosDe(p.id);
+  const masVotados = podio(p.id);
+  const oficial = puestosPartido(p);
+  const elegidos = oficial.length ? oficial : masVotados.map((x) => x.j.id);
+  const candidatos = jugadores();
+
+  const selector = (i) => h('label', { class: 'elegir-mvp' },
+    h('span', {}, icono(['trofeo', 'plata', 'bronce'][i])),
+    h('select', { onchange: (ev) => publicarPodio(p, i, ev.target.value) },
+      h('option', { value: '', text: '— nadie —', selected: !elegidos[i] }),
+      candidatos.map((j) => h('option', { value: j.id, text: `${j.dorsal ?? '–'} · ${j.nombre}`, selected: elegidos[i] === j.id }))));
+
+  return h('div', { class: 'recuento-staff' },
+    h('h4', {}, icono('candado'), 'Solo el cuerpo técnico'),
+    estado.votos
+      ? [h('p', { class: 'apagado', text: votantes.length ? `${plural(votantes.length, 'jugador ha votado', 'jugadores han votado')}` : 'Todavía no ha votado nadie.' }),
+         masVotados.length
+           ? h('ol', { class: 'lista-votos' }, masVotados.map((x) =>
+               h('li', {}, h('span', { class: 'nombre', text: nombreCorto(x.j) }), h('span', { class: 'estrellas', text: `${x.estrellas} ★` })))
+             )
+           : null]
+      : h('button', { type: 'button', class: 'boton-secundario', onclick: cargarVotos }, 'Ver el recuento'),
+    h('p', { class: 'apagado', text: 'Podio que verá el equipo:' }),
+    h('div', { class: 'podio-elegido' }, [0, 1, 2].map(selector)));
 }
 
-async function guardarMvp(p, jugadorId) {
+/** Guarda el podio que verá el equipo. */
+async function publicarPodio(p, puesto, jugadorId) {
+  const oficial = puestosPartido(p);
+  const actuales = oficial.length ? [...oficial] : podio(p.id).map((x) => x.j.id);
+  actuales[puesto] = jugadorId;
+  // Un jugador no puede estar en dos puestos a la vez.
+  const jugadoresPodio = actuales.map((id, i) => (i !== puesto && id === jugadorId ? '' : id));
   const r = await enviarHoja(CONFIG.hoja, {
     accion: 'mvp', pin: recuperar(CLAVE_PIN),
-    partidoId: p.id, jornada: p.jornada || '', rival: rivalDe(p).nombre, jugadorId,
+    partidoId: p.id, jornada: p.jornada || '', rival: rivalDe(p).nombre,
+    jugadores: jugadoresPodio.filter(Boolean),
   }).catch(() => null);
   if (r?.ok) {
-    aviso(jugadorId ? `MVP: ${jugadorPorId(jugadorId)?.nombre} ✓` : 'MVP quitado ✓');
+    aviso('Podio publicado ✓');
     cargarHoja();
   } else {
-    aviso('No se ha podido guardar el MVP', true);
+    aviso('No se ha podido publicar el podio', true);
   }
 }
 
@@ -1099,8 +1138,10 @@ async function guardarVoto() {
         votos,
       });
       if (r.ok) {
+        guardar(votadoEn(votacion.partido), true);
         aviso('¡Voto guardado! ✓');
         cargarHoja();
+        cargarVotos();
         return true;
       }
       aviso(r.error === 'votacion_cerrada' ? 'La votación ya está cerrada' : 'No se ha podido guardar el voto', true);
@@ -2168,6 +2209,7 @@ async function alternarStaff() {
   if (!acceso) return;
   guardar(CLAVE_PIN, acceso.pin);
   guardar(CLAVE_NIVEL, acceso.nivel);
+  estado.votos = null;
   estado.staff = true;
   estado.nivel = acceso.nivel;
   pintarTodo();
