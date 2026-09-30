@@ -19,6 +19,8 @@ const COPAFACIL = {
 };
 
 const NARANJA = '#ff6b00';
+// Cambia con cada versión del script: sirve para comprobar qué hay publicado.
+const VERSION = '2026-09-30-podio';
 
 // Estados de un jugador en un partido (antes: convocado; después: si vino o no).
 const ESTADOS = { convocado: 'Convocado', no_viene: 'No viene', no_convocado: 'No convocado' };
@@ -146,6 +148,7 @@ function onOpen() {
     .addItem('🔒 Cambiar PIN (solo el propietario)', 'cambiarPinDesdeMenu')
     .addItem('Cargar la normativa interna', 'cargarNormativaInterna')
     .addItem('Activar la subida de fotos', 'activarFotos')
+    .addItem('Revisar la pestaña MVP', 'revisarMvp')
     .addToUi();
 }
 
@@ -156,7 +159,7 @@ function onOpen() {
  * En cuanto se pone uno, la web pide los datos por POST con ese PIN.
  */
 function doGet() {
-  if (pinesGuardados_().equipo) return json_({ ok: false, error: 'pin_equipo' });
+  if (pinesGuardados_().equipo) return json_({ ok: false, error: 'pin_equipo', version: VERSION });
   return json_(publico_());
 }
 
@@ -314,6 +317,7 @@ function datosPublicos_() {
       cuarto: texto_(ajustes['Cuarto entrenador']),
     },
     convocatorias: leerConvocatorias_(),
+    version: VERSION,
     mvp: leerMvp_(),
     estrategia: leerEstrategia_(),
     prelista: leerPrelista_(),
@@ -493,7 +497,7 @@ function doPost(e) {
 
   // Los datos: hace falta el PIN del equipo (o el de cualquiera del cuerpo técnico).
   if (peticion.accion === 'datos') {
-    if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo' });
+    if (!puedeVer_(peticion.pinEquipo)) return json_({ ok: false, error: 'pin_equipo', version: VERSION });
     return json_(publico_());
   }
 
@@ -955,6 +959,39 @@ function carpetaFotos_() {
   const carpeta = DriveApp.createFolder('Black Panthers — fotos de la web');
   props.setProperty('CARPETA_FOTOS', carpeta.getId());
   return carpeta;
+}
+
+/**
+ * Mira cómo está la pestaña MVP y, si hace falta, la deja como nueva.
+ * Sirve cuando quedaron filas descolocadas de versiones anteriores.
+ */
+function revisarMvp() {
+  const ui = SpreadsheetApp.getUi();
+  const hoja = asegurarHoja_(HOJAS.MVP);
+  const ancho = Math.max(hoja.getLastColumn(), 1);
+  const cabecera = hoja.getRange(1, 1, 1, ancho).getValues()[0].map(texto_);
+  const ultima = ultimaFilaCon_(hoja, 1);
+  const filas = ultima > 1 ? hoja.getRange(2, 1, Math.min(ultima - 1, 8), ancho).getValues() : [];
+
+  const lineas = ['Versión del script: ' + VERSION, '', 'Columnas: ' + cabecera.join(' | ')];
+  const esperada = ESTRUCTURA.MVP.cabecera.join(' | ');
+  lineas.push('Deberían ser: ' + esperada);
+  lineas.push(cabecera.join(' | ') === esperada ? '✅ La cabecera está bien.' : '⚠️ La cabecera NO coincide.');
+  lineas.push('', 'Filas guardadas: ' + Math.max(0, ultima - 1));
+  filas.forEach(function (f) { lineas.push('   ' + f.map(texto_).join(' | ')); });
+  lineas.push('', '¿Quieres dejar la pestaña en blanco y empezar de cero? Se perderán los podios ya publicados, que se pueden volver a poner desde la web en un momento.');
+
+  const r = ui.alert('Pestaña MVP', lineas.join('\n'), ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+
+  hoja.clear();
+  hoja.getRange(1, 1, 1, ESTRUCTURA.MVP.cabecera.length).setValues([ESTRUCTURA.MVP.cabecera]);
+  ESTRUCTURA.MVP.anchos.forEach(function (a, i) { hoja.setColumnWidth(i + 1, a); });
+  estiloCabecera_(hoja, ESTRUCTURA.MVP.cabecera.length);
+  hoja.getRange('A:A').setNumberFormat('@');
+  hoja.getRange('E:E').setNumberFormat('@');
+  CacheService.getScriptCache().remove('publico');
+  ui.alert('Pestaña MVP a estrenar ✅', 'Ya puedes publicar el podio desde la web.', ui.ButtonSet.OK);
 }
 
 /** Desde el menú: pide el permiso de Drive y deja la carpeta lista. */
@@ -1726,6 +1763,8 @@ function asegurarHoja_(nombre) {
   if (nombre === HOJAS.JUGADORES) hoja.getRange('A:A').setNumberFormat('@');
   if (nombre === HOJAS.CONVOCATORIAS) hoja.getRange('A:A').setNumberFormat('@');
   if (nombre === HOJAS.CONVOCATORIAS) hoja.getRange('D:D').setNumberFormat('@');
+  if (nombre === HOJAS.MVP) hoja.getRange('A:A').setNumberFormat('@');
+  if (nombre === HOJAS.MVP) hoja.getRange('E:E').setNumberFormat('@');
   hoja.setTabColor(nombre === HOJAS.CONVOCATORIAS ? '#555555' : NARANJA);
   return hoja;
 }
