@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=29';
-import { cargarCopaFacil } from './copafacil.js?v=29';
-import { leerHoja, enviarHoja } from './hoja.js?v=29';
+import { CONFIG } from './config.js?v=30';
+import { cargarCopaFacil } from './copafacil.js?v=30';
+import { leerHoja, enviarHoja } from './hoja.js?v=30';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -896,7 +896,9 @@ function podio(partidoId) {
  */
 function puestosPartido(p) {
   const oficial = p ? estado.hoja?.mvp?.[p.id] : null;
-  return (Array.isArray(oficial) ? oficial : [oficial]).filter((id) => id && jugadorPorId(id)).slice(0, 3);
+  const lista = Array.isArray(oficial) ? oficial : [oficial];
+  // Siempre tres sitios: oro, plata y bronce. Un hueco vacío es un puesto sin decidir.
+  return [0, 1, 2].map((i) => (lista[i] && jugadorPorId(lista[i]) ? lista[i] : ''));
 }
 
 /** El MVP oficial de un partido. */
@@ -904,6 +906,9 @@ function mvpDe(p) {
   const j = jugadorPorId(puestosPartido(p)[0]);
   return j ? { j } : null;
 }
+
+/** ¿Ha publicado ya el cuerpo técnico algún puesto de este partido? */
+const hayPodio = (p) => puestosPartido(p).some(Boolean);
 
 /** Medallero de un jugador. Lo ve todo el equipo: son trofeos, no notas. */
 function medallasMvp(id) {
@@ -919,12 +924,12 @@ function medallasMvp(id) {
 /** El MVP del último partido votado, para verlo nada más entrar en Competición. */
 function ultimoMvp() {
   const jugados = (estado.cf?.partidos || []).filter((x) => x.finalizado);
-  for (let i = jugados.length - 1; i >= 0; i--) {
-    const puestos = puestosPartido(jugados[i]);
-    if (puestos.length) return { partido: jugados[i], puestos };
-  }
-  return null;
+  if (!jugados.length) return null;
+  const partido = jugados[jugados.length - 1];
+  return { partido, puestos: puestosPartido(partido) };
 }
+
+/** Medallero: el hueco vacío no cuenta como puesto de nadie. */
 
 /** «Victor David M.»: el nombre entero y la inicial del apellido. */
 function nombrePila(j) {
@@ -934,32 +939,34 @@ function nombrePila(j) {
   return `${partes.slice(0, -1).join(' ')} ${apellido[0].toUpperCase()}.`;
 }
 
-/** El podio del último partido jugado, arriba en Competición. Se queda hasta el siguiente. */
+/**
+ * El podio del último partido, arriba en Competición. Las medallas se ven
+ * siempre; los nombres, solo cuando el cuerpo técnico publica el podio.
+ */
 function pintarMvpMini() {
   const caja = $('#mvp-mini');
   const r = ultimoMvp();
-  caja.hidden = !r;
-  if (!r) return;
+  caja.hidden = !r || !hayHoja();
+  if (caja.hidden) return;
   const { partido: p, puestos } = r;
   const iconos = ['trofeo', 'plata', 'bronce'];
+  const publicado = puestos.some(Boolean);
   caja.title = `Podio${p.jornada ? ` de la jornada ${p.jornada}` : ''} · vs ${rivalDe(p).nombre}`;
 
-  const puesto = (id, i) => {
-    const j = jugadorPorId(id);
-    if (!j) return null;
-    return h('li', { class: `puesto p${i + 1}` },
+  const puesto = (i) => {
+    const j = jugadorPorId(puestos[i]);
+    return h('li', { class: `puesto p${i + 1}${j ? '' : ' sin-nombre'}` },
       icono(iconos[i]),
-      imagen(j.foto),
-      h('span', { class: 'nombre', text: nombrePila(j) }));
+      j ? imagen(j.foto) : h('span', { class: 'foto-vacia' }),
+      h('span', { class: 'nombre', text: j ? nombrePila(j) : '?' }));
   };
 
-  // En una fila y con el ganador en medio, como un cajón de verdad.
-  const orden = puestos.length === 3 ? [[puestos[1], 1], [puestos[0], 0], [puestos[2], 2]]
-    : puestos.length === 2 ? [[puestos[1], 1], [puestos[0], 0]]
-      : [[puestos[0], 0]];
   pintar(caja,
-    h('p', { class: 'titulo-podio', text: `Podio${p.jornada ? ` J${p.jornada}` : ''}` }),
-    h('ol', { class: `podio-mini de-${orden.length}` }, orden.map(([id, i]) => puesto(id, i))));
+    h('p', { class: 'titulo-podio' },
+      `Podio${p.jornada ? ` J${p.jornada}` : ''}`,
+      publicado ? null : h('small', { text: ' · por decidir' })),
+    // El ganador en medio, como un cajón de verdad.
+    h('ol', { class: 'podio-mini' }, [puesto(1), puesto(0), puesto(2)]));
 }
 
 /**
@@ -970,30 +977,27 @@ function pintarMvpMini() {
 function bloqueVotacion(p, { abierto = false } = {}) {
   if (!p?.finalizado || !hayHoja()) return null;
   const oficial = puestosPartido(p);
+  const publicado = oficial.some(Boolean);
   const sePuede = votacionAbierta(p);
   const staff = permitido('mvp');
   const yaVote = recuperar(votadoEn(p)) === true;
   const mejor = jugadorPorId(oficial[0]);
 
   const medallas = ['trofeo', 'plata', 'bronce'];
-  const podioOficial = oficial.length
-    ? h('ol', { class: 'podio' }, oficial.map((id, i) => {
-        const j = jugadorPorId(id);
-        return h('li', { class: `puesto-${i + 1}` },
-          h('span', { class: 'medalla' }, icono(medallas[i])),
-          imagen(j.foto),
-          h('span', { class: 'nombre', text: nombreCorto(j) }));
-      }))
-    : null;
+  // Las medallas se ven siempre; los nombres, solo si el cuerpo técnico los ha publicado.
+  const podioOficial = h('ol', { class: 'podio' }, oficial.map((id, i) => {
+    const j = jugadorPorId(id);
+    return h('li', { class: `puesto-${i + 1}${j ? '' : ' sin-nombre'}` },
+      h('span', { class: 'medalla' }, icono(medallas[i])),
+      j ? imagen(j.foto) : h('span', { class: 'foto-vacia' }),
+      h('span', { class: 'nombre', text: j ? nombreCorto(j) : '?' }));
+  }));
 
-  // Sin podio publicado: se ven las medallas, pero sin nombres.
-  const enSecreto = h('div', { class: 'podio-secreto' },
-    medallas.map((m) => h('span', { class: 'medalla-vacia' }, icono(m), h('span', { class: 'incognita', text: '?' }))),
-    h('p', { class: 'apagado', text: sePuede
-      ? 'La votación es secreta. El cuerpo técnico publicará el podio cuando se cierre.'
-      : 'Votación cerrada. El cuerpo técnico publicará el podio.' }));
+  const enSecreto = publicado ? null : h('p', { class: 'apagado aviso-secreto', text: sePuede
+    ? 'La votación es secreta. El cuerpo técnico publicará el podio cuando se cierre.'
+    : 'Votación cerrada. El cuerpo técnico publicará el podio.' });
 
-  return h('details', { class: 'votacion', open: abierto || (sePuede && !oficial.length) },
+  return h('details', { class: 'votacion', open: abierto || (sePuede && !publicado) },
     h('summary', {},
       h('span', { class: 'titulo-votacion' },
         mejor ? imagen(mejor.foto, '', 'foto-mvp') : icono('estrella'),
@@ -1003,7 +1007,8 @@ function bloqueVotacion(p, { abierto = false } = {}) {
       h('span', { class: 'apagado', text: sePuede ? (yaVote ? 'ya has votado' : 'vota tú también') : '' })),
     h('div', { class: 'cuerpo-votacion' },
       h('p', { class: 'apagado', text: `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rivalDe(p).nombre}` }),
-      podioOficial || enSecreto,
+      podioOficial,
+      enSecreto,
       sePuede
         ? h('div', { class: 'fila-acciones' },
             h('button', { type: 'button', class: 'boton', onclick: () => abrirVotacion(p) }, yaVote ? 'Cambiar mi voto' : 'Votar'),
@@ -1017,7 +1022,7 @@ function recuentoStaff(p) {
   const { votantes } = votosDe(p.id);
   const masVotados = podio(p.id);
   const oficial = puestosPartido(p);
-  const elegidos = oficial.length ? oficial : masVotados.map((x) => x.j.id);
+  const elegidos = oficial.some(Boolean) ? oficial : masVotados.map((x) => x.j.id);
   const candidatos = jugadores();
 
   const selector = (i) => h('label', { class: 'elegir-mvp' },
@@ -1043,20 +1048,29 @@ function recuentoStaff(p) {
 /** Guarda el podio que verá el equipo. */
 async function publicarPodio(p, puesto, jugadorId) {
   const oficial = puestosPartido(p);
-  const actuales = oficial.length ? [...oficial] : podio(p.id).map((x) => x.j.id);
-  actuales[puesto] = jugadorId;
-  // Un jugador no puede estar en dos puestos a la vez.
-  const jugadoresPodio = actuales.map((id, i) => (i !== puesto && id === jugadorId ? '' : id));
+  const base = oficial.some(Boolean) ? oficial : podio(p.id).map((x) => x.j.id);
+  // Tres sitios fijos: oro, plata y bronce. Un hueco vacío se manda igual,
+  // para que la hoja sepa en qué puesto va cada uno.
+  const jugadoresPodio = [0, 1, 2].map((i) => (i === puesto ? jugadorId : base[i] || ''));
+  // Nadie puede estar en dos puestos a la vez.
+  const sinRepetir = jugadoresPodio.map((id, i) => (i !== puesto && id && id === jugadorId ? '' : id));
   const r = await enviarHoja(CONFIG.hoja, {
     accion: 'mvp', pin: recuperar(CLAVE_PIN),
     partidoId: p.id, jornada: p.jornada || '', rival: rivalDe(p).nombre,
-    jugadores: jugadoresPodio.filter(Boolean),
+    jugadores: sinRepetir,
   }).catch(() => null);
   if (r?.ok) {
     aviso('Podio publicado ✓');
     cargarHoja();
   } else {
-    aviso('No se ha podido publicar el podio', true);
+    const motivos = {
+      pin: 'el PIN no vale',
+      sin_permiso: 'ese PIN no puede publicar el podio',
+      datos_invalidos: 'el partido no es válido',
+      jugador_desconocido: 'ese jugador no está en la pestaña JUGADORES',
+      bloqueado: 'demasiados intentos, espera 15 minutos',
+    };
+    aviso(`No se ha podido publicar el podio: ${motivos[r?.error] || r?.error || 'no responde la hoja'}`, true);
   }
 }
 

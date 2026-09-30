@@ -1165,3 +1165,7 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .podio-elegido .elegir-mvp { margin-top: 0; gap: 6px; }
 .podio-elegido .elegir-mvp svg { width: 20px; height: 24px; }
 .podio-elegido select { background: var(--negro); color: var(--texto); border: 1px solid var(--borde); }
+.podio-mini .sin-nombre { opacity: 0.75; }
+.podio-mini .sin-nombre .nombre { font-family: var(--display); font-size: 1rem; }
+.podio-mini .foto-vacia { display: block; }
+.mvp-mini .titulo-podio small { font-weight: 700; }

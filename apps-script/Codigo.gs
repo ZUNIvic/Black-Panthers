@@ -420,7 +420,11 @@ function leerMvp_() {
     const podio = (res[partido] = res[partido] || []);
     podio[puesto - 1] = jugador;
   });
-  Object.keys(res).forEach((k) => (res[k] = res[k].filter(Boolean)));
+  // Tres sitios siempre: si falta el oro o la plata, el hueco se respeta.
+  Object.keys(res).forEach(function (k) {
+    const a = res[k];
+    res[k] = [a[0] || '', a[1] || '', a[2] || ''];
+  });
   return res;
 }
 
@@ -829,12 +833,16 @@ function guardarVoto_(p) {
 function guardarMvp_(p) {
   const partido = texto_(p.partidoId);
   if (!/^\d{5,20}$/.test(partido)) return { ok: false, error: 'datos_invalidos' };
+  // Cada sitio del array es su puesto: 1 oro, 2 plata, 3 bronce. Los huecos se respetan.
   const pedidos = Array.isArray(p.jugadores) ? p.jugadores : [p.jugadorId];
-  const ids = [];
-  pedidos.slice(0, 3).forEach((x) => {
-    const id = texto_(x);
-    if (id && ids.indexOf(id) < 0) ids.push(id);
-  });
+  const vistos = {};
+  const puestos = [];
+  for (let i = 0; i < 3; i++) {
+    const id = texto_(pedidos[i]);
+    puestos[i] = id && !vistos[id] ? id : '';
+    if (id) vistos[id] = true;
+  }
+  const ids = puestos.filter(function (x) { return x; });
 
   const hoja = asegurarHoja_(HOJAS.MVP);
   migrarMvp_(hoja);
@@ -844,9 +852,9 @@ function guardarMvp_(p) {
   const nombres = nombresPorId_(ids);
   const ahora = new Date();
   const filas = [];
-  ids.forEach((id) => {
-    if (!nombres[id]) return;
-    filas.push([partido, texto_(p.jornada), texto_(p.rival), filas.length + 1, id, nombres[id], ahora]);
+  puestos.forEach(function (id, i) {
+    if (!id || !nombres[id]) return;
+    filas.push([partido, texto_(p.jornada), texto_(p.rival), i + 1, id, nombres[id], ahora]);
   });
   if (!filas.length) return { ok: false, error: 'jugador_desconocido' };
   const inicio = ultimaFilaCon_(hoja, 1) + 1;
