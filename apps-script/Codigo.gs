@@ -837,6 +837,7 @@ function guardarMvp_(p) {
   });
 
   const hoja = asegurarHoja_(HOJAS.MVP);
+  migrarMvp_(hoja);
   borrarFilasDe_(hoja, partido);
   if (!ids.length) return { ok: true, guardados: 0 };
 
@@ -913,6 +914,23 @@ function subirFoto_(p) {
   const fichero = carpetaFotos_().createFile(blob);
   fichero.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return { ok: true, url: 'https://drive.google.com/thumbnail?id=' + fichero.getId() + '&sz=w1200' };
+}
+
+/**
+ * La pestaña MVP nació sin la columna «Puesto», cuando solo se guardaba el MVP.
+ * Si viene de entonces, se le mete la columna y lo que hubiera pasa a ser el oro.
+ */
+function migrarMvp_(hoja) {
+  const ancho = Math.max(hoja.getLastColumn(), 1);
+  const cabecera = hoja.getRange(1, 1, 1, ancho).getValues()[0].map(texto_);
+  if (cabecera.indexOf('Puesto') >= 0) return;
+
+  hoja.insertColumnBefore(4);
+  hoja.getRange(1, 4).setValue('Puesto');
+  const ultima = ultimaFilaCon_(hoja, 1);
+  if (ultima > 1) hoja.getRange(2, 4, ultima - 1, 1).setValue(1);
+  ESTRUCTURA.MVP.anchos.forEach((a, i) => hoja.setColumnWidth(i + 1, a));
+  estiloCabecera_(hoja, ESTRUCTURA.MVP.cabecera.length);
 }
 
 /** La carpeta de Drive donde van las fotos de la web. Se crea la primera vez. */
