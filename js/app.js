@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=31';
-import { cargarCopaFacil } from './copafacil.js?v=31';
-import { leerHoja, enviarHoja } from './hoja.js?v=31';
+import { CONFIG } from './config.js?v=32';
+import { cargarCopaFacil } from './copafacil.js?v=32';
+import { leerHoja, enviarHoja } from './hoja.js?v=32';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -279,7 +279,7 @@ function pintarGrabaciones() {
   if (!enlace) return;
   pintar($('#grabaciones'),
     h('a', { class: 'boton ancho', href: enlace, target: '_blank', rel: 'noopener' }, icono('video'), 'Ver los partidos'),
-    h('p', { class: 'apagado', text: 'Se abren en Google Drive. Ahí van subiéndose las grabaciones de cada jornada.' }));
+    h('p', { class: 'apagado', text: 'Sólo disponible hasta la siguiente grabación' }));
 }
 
 function pintarAnuncios() {
