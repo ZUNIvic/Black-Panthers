@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=30';
-import { cargarCopaFacil } from './copafacil.js?v=30';
-import { leerHoja, enviarHoja } from './hoja.js?v=30';
+import { CONFIG } from './config.js?v=31';
+import { cargarCopaFacil } from './copafacil.js?v=31';
+import { leerHoja, enviarHoja } from './hoja.js?v=31';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -42,6 +42,7 @@ const ICONOS = {
   trofeo: '<svg viewBox="0 0 24 28"><path d="M6 2h12v7a6 6 0 0 1-12 0Z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/><path d="M6 4H3v2a4 4 0 0 0 3 3.8M18 4h3v2a4 4 0 0 1-3 3.8" fill="none" stroke="#8a6d00" stroke-width="1.4"/><path d="M11 15h2v4h-2z" fill="#8a6d00" stroke="none"/><path d="M7 21h10v3H7z" fill="#f2c200" stroke="#8a6d00" stroke-width="1.4"/></svg>',
   plata: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#7a7a7a" stroke="none"/><circle cx="11" cy="21" r="8" fill="#d8d8d8" stroke="#8c8c8c" stroke-width="1.5"/></svg>',
   bronce: '<svg viewBox="0 0 22 30"><path d="M5 0 9 13h4L17 0Z" fill="#8a4b1f" stroke="none"/><circle cx="11" cy="21" r="8" fill="#c87f3a" stroke="#7a4517" stroke-width="1.5"/></svg>',
+  video: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 11 5-3v8l-5-3Z"/></svg>',
   candado: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12Z"/><path d="M9.2 9.4c.2-.5.4-.5.6-.5h.5c.2 0 .4 0 .6.5l.6 1.4c.1.3 0 .5-.1.6l-.4.5c-.1.2-.2.3 0 .6.3.5.8 1.1 1.5 1.5.3.2.5.2.7 0l.5-.5c.2-.2.4-.2.6-.1l1.3.7c.4.2.4.4.4.6 0 .5-.4 1.1-1 1.3-.8.3-1.9 0-3.2-.8-1.3-.9-2.2-2-2.7-3-.4-.9-.3-1.7.1-2.3Z"/></svg>',
 };
@@ -268,6 +269,17 @@ function pintarHero() {
   $('#frase-mini').textContent = $('#frase').textContent;
   pintarMvpMini();
   pintar($('#staff-frase'), botonStaff('Cambiar frase', () => abrirMensaje('motivador')));
+}
+
+/** La carpeta de Drive con los partidos grabados. La ve todo el equipo. */
+function pintarGrabaciones() {
+  const caja = $('#bloque-grabaciones');
+  const enlace = urlSegura(CONFIG.grabaciones);
+  caja.hidden = !enlace;
+  if (!enlace) return;
+  pintar($('#grabaciones'),
+    h('a', { class: 'boton ancho', href: enlace, target: '_blank', rel: 'noopener' }, icono('video'), 'Ver los partidos'),
+    h('p', { class: 'apagado', text: 'Se abren en Google Drive. Ahí van subiéndose las grabaciones de cada jornada.' }));
 }
 
 function pintarAnuncios() {
@@ -1966,6 +1978,7 @@ function pintarTodo() {
   aSalvo('pintarEntradas', () => pintarEntradas());
   aSalvo('pintarHero', () => pintarHero());
   aSalvo('pintarAnuncios', () => pintarAnuncios());
+  aSalvo('pintarGrabaciones', () => pintarGrabaciones());
   aSalvo('pintarProximoPartido', () => pintarProximoPartido());
   aSalvo('pintarProximoEntreno', () => pintarProximoEntreno());
   aSalvo('pintarApuntadosEntreno', () => pintarApuntadosEntreno());

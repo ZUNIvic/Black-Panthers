@@ -184,6 +184,12 @@ Con el PIN del míster o el tuyo, debajo de la convocatoria sale **«Avisar por 
 con el mensaje ya escrito (jornada, rival, día, hora, campo y el enlace de la web). Tú eliges el grupo y
 envías. La web no puede mandarlo sola: WhatsApp no lo permite sin pagar.
 
+### Las grabaciones de los partidos
+
+En **Equipo**, al lado de los anuncios, hay un acceso a tu carpeta de Drive con los partidos grabados.
+La carpeta tiene que estar compartida en Drive con **«Cualquier usuario con el enlace» → Lector**; si no,
+a los jugadores les saldrá «Solicitar acceso». Para cambiar de carpeta, dímelo: está en `js/config.js`.
+
 ### Las fotos del tercer tiempo
 
 En **Tercer tiempo → Editar fotos** puedes **subir la foto directamente desde el móvil** con «Elegir

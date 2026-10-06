@@ -1169,3 +1169,14 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .podio-mini .sin-nombre .nombre { font-family: var(--display); font-size: 1rem; }
 .podio-mini .foto-vacia { display: block; }
 .mvp-mini .titulo-podio small { font-weight: 700; }
+
+/* Anuncios y grabaciones, uno al lado del otro */
+.fila-anuncios { display: grid; gap: 10px; }
+@media (min-width: 820px) {
+  .fila-anuncios { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+  .fila-anuncios > .bloque { margin-top: 24px; }
+}
+#bloque-grabaciones { background: var(--panel); border: 1px solid var(--borde); border-radius: var(--radio); padding: 14px 16px; }
+#grabaciones { display: grid; gap: 8px; }
+#grabaciones .boton svg { width: 20px; height: 20px; }
+#grabaciones .apagado { font-size: 0.8rem; margin: 0; }
