@@ -174,7 +174,14 @@ En **Competición → Convocatoria** hay ahora dos listas, las dos visibles para
 1. **Prelista**: cada jugador pulsa **Voy** o **No voy** para el próximo partido. Se guardan **por orden
    de apuntarse** y se numeran, tal y como dice la normativa («las 8 plazas restantes por orden de
    inscripción»). Cada uno solo puede tocar lo suyo, y puede cambiar de opinión o borrarse.
-2. **Lista definitiva**: la sigue haciendo el cuerpo técnico con su PIN. Es la que manda.
+2. **Lista definitiva**: la sigue haciendo el cuerpo técnico con su PIN. Es la que manda. Al abrirla,
+   **ya vienen marcados los que dijeron «Voy»** y en rojo los que dijeron que no; y si la convocatoria ya
+   estaba hecha, se parte de ella tal cual, sin perder los cambios. Debajo de cada nombre se ve lo que
+   dijo en la prelista.
+
+En la convocatoria publicada salen **tres grupos**: los **convocados**, los que han dicho que **no vienen**
+(en rojo) y, en gris, los **no convocados**, que son el resto de la plantilla. Que alguien salga en gris no
+es un error: es la forma de ver de un vistazo a quién no se ha llamado.
 
 Queda en la pestaña **PRELISTA**.
 

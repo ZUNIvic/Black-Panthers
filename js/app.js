@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=32';
-import { cargarCopaFacil } from './copafacil.js?v=32';
-import { leerHoja, enviarHoja } from './hoja.js?v=32';
+import { CONFIG } from './config.js?v=33';
+import { cargarCopaFacil } from './copafacil.js?v=33';
+import { leerHoja, enviarHoja } from './hoja.js?v=33';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -2295,8 +2295,8 @@ const ESTADOS_ENTRENO = [
 
 let lista = null; // { seleccion: Map(id → valor), estados, alGuardar }
 
-function abrirLista({ titulo, subtitulo = '', ayuda = '', estados, seleccion, fecha = null, alGuardar }) {
-  lista = { seleccion, estados, alGuardar };
+function abrirLista({ titulo, subtitulo = '', ayuda = '', estados, seleccion, prelista = null, fecha = null, alGuardar }) {
+  lista = { seleccion, estados, prelista, alGuardar };
   $('#dlg-lista-titulo').textContent = titulo;
   $('#dlg-lista-subtitulo').textContent = subtitulo;
   $('#dlg-lista-ayuda').textContent = ayuda;
@@ -2330,6 +2330,11 @@ function pintarLista() {
       h('span', { class: 'dorsal', text: j.dorsal ?? '–' }),
       h('span', { class: 'nombre' }, j.nombre,
         j.activo === false ? h('small', { class: 'apagado', text: ' · no activo' }) : null,
+        (() => {
+          const dice = lista.prelista?.get(j.id);
+          if (!dice) return null;
+          return h('small', { class: `dijo ${dice}`, text: dice === 'voy' ? ' · dijo que va' : ' · dijo que no' });
+        })(),
         marcas.length ? h('small', {}, h('span', { class: 'marcas marcas-lista' }, marcas)) : null),
       h('span', { class: 'marca-conv', text: e.etiqueta })));
   }));
@@ -2352,13 +2357,24 @@ function abrirConvocatoria(p) {
   // convocatoria, para poder sacarlo.
   const yaEstaba = (j) => g && (g.convocados.includes(j.id) || g.noVienen.includes(j.id));
   const plantilla = [...jugadores(), ...plantillaCompleta().filter((j) => j.activo === false && yaEstaba(j))];
+  const prelista = new Map((estado.hoja?.prelista?.[p.id] || []).map((x) => [x.id, x.dice]));
+  const hayConvocatoria = Boolean(g && !g.deActa);
   const seleccion = new Map(plantilla.map((j) => {
-    if (g) {
+    // Si ya hay convocatoria, se parte de ella tal cual: no se pierde nada.
+    if (hayConvocatoria) {
       const valor = g.convocados.includes(j.id) ? 'convocado' : g.noVienen.includes(j.id) ? 'no_viene' : 'no_convocado';
       return [j.id, valor];
     }
-    // Sin convocatoria: todos convocados menos las bajas, que no vienen.
-    return [j.id, lesionDe(j.id)?.estado === 'baja' ? 'no_viene' : 'convocado'];
+    if (g) {
+      // Partido ya jugado sin convocatoria: se parte del acta de CopaFácil.
+      return [j.id, g.convocados.includes(j.id) ? 'convocado' : 'no_convocado'];
+    }
+    // Sin convocatoria: manda la prelista.
+    const dice = prelista.get(j.id);
+    if (dice === 'voy') return [j.id, 'convocado'];
+    if (dice === 'no' || lesionDe(j.id)?.estado === 'baja') return [j.id, 'no_viene'];
+    // Si nadie se ha apuntado todavía, se convoca a todos como antes.
+    return [j.id, prelista.size ? 'no_convocado' : 'convocado'];
   }));
   const rival = rivalDe(p);
   abrirLista({
@@ -2366,9 +2382,14 @@ function abrirConvocatoria(p) {
     subtitulo: `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rival.nombre}${p.fecha ? ` · ${diaPartido(p.fecha)}` : ''}${pasado ? ' · ya jugado' : ''}`,
     ayuda: pasado
       ? 'Partido ya jugado: deja en «Vino» a los que estuvieron y en «No vino» a los que faltaron (cuenta como falta, en rojo). Toca a un jugador para cambiarlo.'
-      : 'Toca a cada jugador para cambiar: Convocado → No viene → No convocado.',
+      : hayConvocatoria
+        ? 'Sales de la convocatoria que ya habías hecho. Toca a cada jugador para cambiarlo: Convocado → No viene → No convocado.'
+        : prelista.size
+          ? 'Salen convocados los que dijeron «Voy» en la prelista, y en rojo los que dijeron que no. Toca a cada jugador para cambiarlo.'
+          : 'Todavía no se ha apuntado nadie, así que salen todos convocados. Toca a cada jugador para cambiarlo.',
     estados: pasado ? ESTADOS_PARTIDO_JUGADO : ESTADOS_PARTIDO,
     seleccion,
+    prelista,
     alGuardar: async (sel) => {
       const ok = await enviarStaff({
         accion: 'convocar',

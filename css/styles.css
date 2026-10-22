@@ -1180,3 +1180,6 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 #grabaciones { display: grid; gap: 8px; }
 #grabaciones .boton svg { width: 20px; height: 20px; }
 #grabaciones .apagado { font-size: 0.8rem; margin: 0; }
+.opcion-jugador .dijo { font-weight: 700; }
+.opcion-jugador .dijo.voy { color: var(--verde); }
+.opcion-jugador .dijo.no { color: var(--rojo); }
