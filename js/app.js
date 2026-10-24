@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=35';
-import { cargarCopaFacil } from './copafacil.js?v=35';
-import { leerHoja, enviarHoja } from './hoja.js?v=35';
+import { CONFIG } from './config.js?v=36';
+import { cargarCopaFacil } from './copafacil.js?v=36';
+import { leerHoja, enviarHoja } from './hoja.js?v=36';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -1398,7 +1398,7 @@ function pintarNormativa() {
 
 /* ───────────────────────── 2. Competición ───────────────────────── */
 
-function tarjetaPartido(p, { conConvocatoria = false } = {}) {
+function tarjetaPartido(p, { conConvocatoria = false, nuestro = false } = {}) {
   const lado = (eq, derecha) => h('div', { class: `lado${derecha ? ' derecha' : ''}${eq.id === CONFIG.copafacil.equipo ? ' nuestro' : ''}` },
     imagen(eq.escudo), h('span', { text: eq.nombre }));
 
@@ -1435,7 +1435,7 @@ function tarjetaPartido(p, { conConvocatoria = false } = {}) {
         acciones.some(Boolean) ? h('span', { class: 'acciones' }, acciones) : null,
         listas)
     : null;
-  return h('article', { class: 'partido' }, meta,
+  return h('article', { class: `partido${nuestro ? ' el-nuestro' : ''}` }, meta,
     h('div', { class: 'marcador' }, lado(p.local, false), centro, lado(p.visitante, true)),
     pie,
     p.finalizado ? bloqueVotacion(p) : null);
@@ -1498,7 +1498,7 @@ function pintarJornadas(cf) {
           ? h('span', { class: 'jornada-nuestro', text: resumenPartido(nuestro) })
           : h('span', { class: 'apagado', text: `${jugados} de ${j.partidos.length} jugados` })),
       h('div', { class: 'partidos-jornada' },
-        j.partidos.map((p) => (p.nuestro ? tarjetaPartido(p, { conConvocatoria: !p.finalizado }) : filaPartido(p)))));
+        j.partidos.map((p) => (p.nuestro ? tarjetaPartido(p, { conConvocatoria: !p.finalizado, nuestro: true }) : filaPartido(p)))));
   }));
 }
 
@@ -3011,11 +3011,13 @@ function mostrarVista(desdeClic) {
 }
 
 /* ───────────────────────── Pizarra de estrategia ─────────────────────────
-   Guía fija de sistemas de fútbol 7. No se guarda nada: es la misma para todos.
-   Atacamos hacia arriba; nuestra portería está abajo. El campo mide 100 x 150. */
+   Guía fija: sistemas de fútbol 7 y jugadas paso a paso, con balón y rivales.
+   No se guarda nada: es la misma para todo el equipo.
+   El campo mide 100 x 150. Nosotros atacamos hacia arriba. */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ALTO_CAMPO = 150;
+const PASO_MS = 3200; // lo que dura cada paso de la jugada
 
 const svg = (etiqueta, attrs = {}, ...hijos) => {
   const el = document.createElementNS(SVG_NS, etiqueta);
@@ -3023,6 +3025,9 @@ const svg = (etiqueta, attrs = {}, ...hijos) => {
   hijos.flat(Infinity).forEach((x) => el.appendChild(typeof x === 'string' ? document.createTextNode(x) : x));
   return el;
 };
+
+// Rivales: su portería está arriba. Es un 1-2-3-1 mirando hacia nosotros.
+const RIVALES = { r1: [50, 12], r2: [34, 36], r3: [66, 36], r4: [20, 70], r5: [50, 62], r6: [80, 70], r7: [50, 96] };
 
 const SISTEMAS = [
   {
@@ -3032,83 +3037,184 @@ const SISTEMAS = [
     resumen: 'Tres defensas, dos medios y un punta. El más seguro atrás: la línea de tres cubre todo el ancho y los medios ayudan en las dos fases.',
     posiciones: [
       { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
-        defensa: [43, 140], ataque: [50, 122],
         txtDefensa: 'Achica y manda: avisa de quién entra por detrás de la línea de tres.',
         txtAtaque: 'Sale del área para dar salida. Con tres atrás siempre hay dos a quien pasar.' },
       { id: 'li', nombre: 'Lateral izquierdo', corto: 'LI', base: [22, 110],
-        defensa: [22, 122], ataque: [20, 68],
         txtDefensa: 'Si el balón viene por su banda, sale él al que lo lleva; nadie más.',
         txtAtaque: 'Sube por fuera a dar amplitud. El otro lateral se queda: nunca suben los dos.' },
       { id: 'dfc', nombre: 'Central', corto: 'DFC', base: [50, 115],
-        defensa: [44, 124], ataque: [50, 96],
         txtDefensa: 'Es el jefe de la línea. No se va al balón: tapa el centro y cubre al lateral que sale.',
         txtAtaque: 'Se queda de seguro. Es el que da la vuelta al juego si la banda está cerrada.' },
       { id: 'ld', nombre: 'Lateral derecho', corto: 'LD', base: [78, 110],
-        defensa: [66, 120], ataque: [76, 88],
-        txtDefensa: 'Con el balón al otro lado, bascula al centro y cubre al central. Ojo al extremo que le queda lejos.',
-        txtAtaque: 'Acompaña por dentro, no por fuera: es el equilibrio si perdemos el balón.' },
+        txtDefensa: 'Con el balón al otro lado bascula al centro y cubre al central.',
+        txtAtaque: 'Acompaña por dentro: es el equilibrio si perdemos el balón.' },
       { id: 'mi', nombre: 'Medio izquierdo', corto: 'MI', base: [33, 80],
-        defensa: [32, 96], ataque: [36, 54],
         txtDefensa: 'Baja a ayudar a su lateral: dos contra uno en la banda del balón.',
         txtAtaque: 'Aparece entre líneas para recibir de espaldas y girar.' },
       { id: 'md', nombre: 'Medio derecho', corto: 'MD', base: [67, 80],
-        defensa: [56, 98], ataque: [64, 46],
         txtDefensa: 'Cierra el centro mientras su compañero sale. Nunca se van los dos a la vez.',
         txtAtaque: 'Llega desde atrás al área: el segundo que entra es el que marca.' },
       { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 48],
-        defensa: [46, 72], ataque: [50, 26],
         txtDefensa: 'No corre detrás de todos: se pone en el camino del pase y obliga a jugar por fuera.',
         txtAtaque: 'Ataca el primer palo y arrastra al central para abrir hueco a los medios.' },
+    ],
+    jugadas: [
+      {
+        id: 'salida-corta', nombre: 'Salida corta', tipo: 'ataque',
+        pasos: [
+          { texto: 'Saca el portero. Los laterales se abren a la cal y el central se separa: cuanto más lejos estemos unos de otros, más les cuesta taparnos.',
+            balon: [50, 132], mover: { li: [14, 116], ld: [86, 116], dfc: [50, 120] } },
+          { texto: 'El pase va al lateral que queda lejos del punta rival. Nunca al que tiene encima.',
+            balon: [16, 114], mover: {}, rivales: { r7: [42, 104] } },
+          { texto: 'El medio de esa banda baja a recibir y el otro se mete por dentro: siempre dos opciones de pase.',
+            balon: [26, 94], mover: { mi: [26, 92], md: [58, 64] }, rivales: { r4: [24, 80] } },
+          { texto: 'Cambio de orientación al lateral contrario, que lleva veinte metros subiendo solo. Ahí está el partido.',
+            balon: [84, 88], mover: { ld: [84, 84], dc: [52, 38] }, rivales: { r6: [74, 78] } },
+        ],
+      },
+      {
+        id: 'salida-larga', nombre: 'Salida larga', tipo: 'ataque',
+        pasos: [
+          { texto: 'Si vienen a presionarnos arriba, no hay que empeñarse en salir jugando. Se avisa y se juega largo.',
+            balon: [50, 132], mover: {}, rivales: { r7: [46, 110], r4: [26, 88], r6: [74, 88] } },
+          { texto: 'El punta se descuelga a recibir de espaldas y los dos medios salen con él a por el rechace.',
+            balon: [50, 64], mover: { dc: [50, 62], mi: [38, 72], md: [62, 72] } },
+          { texto: 'Descarga al medio que llega lanzado y atacamos el espacio que han dejado al subir.',
+            balon: [62, 60], mover: { md: [64, 42], dc: [50, 30], mi: [44, 58] } },
+        ],
+      },
+      {
+        id: 'presion-alta', nombre: 'Presión alta', tipo: 'defensa',
+        pasos: [
+          { texto: 'El punta va al que saca, pero corriendo por dentro: le obliga a jugar a una banda, no al centro.',
+            balon: [50, 18], mover: { dc: [50, 32] } },
+          { texto: 'En cuanto el balón va a ese lado, salta el medio de esa banda. El resto se desplaza con él.',
+            balon: [34, 40], mover: { mi: [34, 56], md: [58, 66] } },
+          { texto: 'Los de atrás achican hasta el centro del campo. Robar aquí es media ocasión.',
+            balon: [34, 46], mover: { li: [26, 84], dfc: [50, 88], ld: [74, 84] }, rivales: { r2: [34, 44] } },
+        ],
+      },
+      {
+        id: 'repliegue', nombre: 'Repliegue', tipo: 'defensa',
+        pasos: [
+          { texto: 'Perdemos el balón. El primero que tiene que bajar es el punta, no el defensa.',
+            balon: [50, 60], mover: { dc: [50, 84] }, rivales: { r5: [50, 64] } },
+          { texto: 'Bloque corto por delante del portero: todos por detrás del balón y nadie mirando.',
+            balon: [50, 72], mover: { li: [24, 114], dfc: [50, 118], ld: [76, 114], mi: [36, 98], md: [64, 98] } },
+          { texto: 'Si el balón se va a una banda, el bloque entero se desplaza a ese lado. El lateral de lejos entra al centro.',
+            balon: [22, 80], mover: { li: [18, 108], dfc: [42, 116], ld: [64, 112], mi: [28, 92], md: [52, 96] },
+            rivales: { r4: [20, 84] } },
+        ],
+      },
     ],
   },
   {
     id: '1-2-3-1',
     nombre: '1-2-3-1',
     apodo: 'Tres medios',
-    resumen: 'Dos centrales, tres medios y un punta. Más campo en el medio y bandas largas, pero los centrales se quedan solos si los medios no bajan.',
+    resumen: 'Dos centrales, tres medios y un punta. Más gente en el medio y bandas largas, pero los centrales se quedan solos si los medios no bajan.',
     posiciones: [
       { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
-        defensa: [44, 140], ataque: [50, 122],
-        txtDefensa: 'Con solo dos centrales tiene que salir a los balones largos a la espalda.',
-        txtAtaque: 'Abre juego a un central y el equipo sale jugando desde atrás.' },
+        txtDefensa: 'Con solo dos centrales tiene que salir a los balones a la espalda.',
+        txtAtaque: 'Abre a un central y el equipo sale jugando desde atrás.' },
       { id: 'dfi', nombre: 'Central izquierdo', corto: 'DFI', base: [35, 115],
-        defensa: [30, 124], ataque: [36, 94],
         txtDefensa: 'Sale al balón cuando viene por su lado; el compañero le cubre por dentro.',
         txtAtaque: 'Conduce unos metros para obligar a salir a un rival y liberar al medio.' },
       { id: 'dfd', nombre: 'Central derecho', corto: 'DFD', base: [65, 115],
-        defensa: [54, 122], ataque: [64, 94],
-        txtDefensa: 'Bascula al centro a cubrir. Si los dos salen a la vez, queda el campo abierto.',
-        txtAtaque: 'Se queda de seguro y da la salida al otro lado.' },
+        txtDefensa: 'Bascula al centro a cubrir. Si salen los dos a la vez, queda el campo abierto.',
+        txtAtaque: 'Se queda de seguro y da la vuelta al juego.' },
       { id: 'mi', nombre: 'Banda izquierda', corto: 'MI', base: [20, 78],
-        defensa: [24, 100], ataque: [16, 50],
         txtDefensa: 'Baja hasta la línea de los centrales: se defiende con cuatro, no con dos.',
-        txtAtaque: 'Pegado a la cal para estirar al equipo rival y buscar el uno contra uno.' },
+        txtAtaque: 'Pegado a la cal, para estirarlos y buscar el uno contra uno.' },
       { id: 'mc', nombre: 'Medio centro', corto: 'MC', base: [50, 85],
-        defensa: [44, 104], ataque: [50, 70],
         txtDefensa: 'Tapa el pase al punta rival. Es la posición que más corre del sistema.',
         txtAtaque: 'El que reparte: recibe de los centrales y cambia de banda.' },
       { id: 'md', nombre: 'Banda derecha', corto: 'MD', base: [80, 78],
-        defensa: [68, 96], ataque: [84, 50],
-        txtDefensa: 'Si está el balón al otro lado, cierra por dentro: no se queda mirando en su banda.',
+        txtDefensa: 'Con el balón al otro lado cierra por dentro, no se queda en su banda.',
         txtAtaque: 'Abre el campo y llega al segundo palo en los centros del otro lado.' },
       { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 45],
-        defensa: [46, 74], ataque: [50, 24],
         txtDefensa: 'Presiona al que saca orientando el pase hacia una banda.',
         txtAtaque: 'Fija a los centrales para que los tres medios lleguen desde atrás.' },
+    ],
+    jugadas: [
+      {
+        id: 'salida-centrales', nombre: 'Salida por dentro', tipo: 'ataque',
+        pasos: [
+          { texto: 'Los dos centrales se abren al borde del área y el medio centro baja al hueco entre ellos.',
+            balon: [50, 132], mover: { dfi: [26, 118], dfd: [74, 118], mc: [50, 104] } },
+          { texto: 'Pase a un central, que conduce hacia dentro para que el rival salga a buscarle.',
+            balon: [28, 114], mover: { dfi: [30, 110] }, rivales: { r7: [38, 100] } },
+          { texto: 'Al salir, deja libre al medio centro. Ese es el pase que rompe la presión.',
+            balon: [48, 100], mover: { mc: [48, 96], mi: [16, 66], md: [84, 66] } },
+          { texto: 'Con el medio girado, las dos bandas ya están en carrera y el punta ataca el área.',
+            balon: [80, 62], mover: { md: [84, 54], dc: [52, 28] }, rivales: { r4: [22, 60], r6: [78, 58] } },
+        ],
+      },
+      {
+        id: 'banda-centro', nombre: 'Banda y centro', tipo: 'ataque',
+        pasos: [
+          { texto: 'El balón llega a la banda con espacio por delante. Nadie le quita el uno contra uno.',
+            balon: [18, 60], mover: { mi: [16, 58], mc: [46, 76] } },
+          { texto: 'El punta ataca el primer palo y se lleva al central: deja un hueco enorme detrás.',
+            balon: [18, 48], mover: { mi: [16, 46], dc: [38, 26] }, rivales: { r2: [34, 26] } },
+          { texto: 'El centro va a ese hueco y la banda contraria llega al segundo palo. Ahí es donde se marca.',
+            balon: [68, 28], mover: { md: [72, 30], mc: [50, 50] } },
+        ],
+      },
+      {
+        id: 'bloque-medio', nombre: 'Bloque medio', tipo: 'defensa',
+        pasos: [
+          { texto: 'No presionamos arriba: esperamos en el centro del campo con los tres medios en línea.',
+            balon: [50, 30], mover: { dc: [50, 56], mi: [24, 72], mc: [50, 74], md: [76, 72] } },
+          { texto: 'Cuando el balón entra en una banda, saltamos. El resto bascula a ese lado a la vez.',
+            balon: [22, 62], mover: { mi: [22, 66], mc: [40, 80], md: [62, 76], dfi: [30, 106] },
+            rivales: { r4: [22, 58] } },
+          { texto: 'El central del lado contrario se mete al centro. Cerramos el pasillo, no la banda lejana.',
+            balon: [22, 72], mover: { dfd: [52, 110], dc: [40, 70] } },
+        ],
+      },
+      {
+        id: 'repliegue-4', nombre: 'Repliegue a cuatro', tipo: 'defensa',
+        pasos: [
+          { texto: 'Nos la han robado. Las dos bandas bajan a la altura de los centrales: línea de cuatro.',
+            balon: [50, 56], mover: { mi: [22, 112], md: [78, 112], dfi: [38, 116], dfd: [62, 116] },
+            rivales: { r5: [50, 60] } },
+          { texto: 'El medio centro tapa al punta rival por delante de la línea, sin meterse en ella.',
+            balon: [50, 70], mover: { mc: [50, 100], dc: [50, 80] } },
+          { texto: 'Balón a una banda: la línea de cuatro se desplaza junta. Nadie se queda a contrapié.',
+            balon: [76, 84], mover: { mi: [34, 110], dfi: [50, 114], dfd: [70, 112], md: [84, 104], mc: [62, 92] },
+            rivales: { r6: [80, 80] } },
+        ],
+      },
     ],
   },
 ];
 
-const FASES = {
-  base: { etiqueta: 'Posición', clase: 'base' },
-  defensa: { etiqueta: 'Defensa', clase: 'defensa' },
-  ataque: { etiqueta: 'Ataque', clase: 'ataque' },
-};
-
-let pizarra = { sistema: SISTEMAS[0].id, fase: 'base', posicion: null, bucle: null };
+let pizarra = { sistema: SISTEMAS[0].id, jugada: null, paso: 0, posicion: null, bucle: null };
 
 const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
-const sitio = (pos, fase) => (fase === 'base' ? pos.base : pos[fase] || pos.base);
+const jugadaActual = () => sistemaActual().jugadas.find((x) => x.id === pizarra.jugada) || null;
+
+/** Dónde está cada cosa en el paso que toca: lo que no se mueve, se queda en su sitio. */
+function fotograma() {
+  const sistema = sistemaActual();
+  const jugada = jugadaActual();
+  const nuestros = {};
+  sistema.posiciones.forEach((p) => (nuestros[p.id] = p.base));
+  const rivales = { ...RIVALES };
+  let balon = null;
+  let texto = '';
+  if (jugada) {
+    for (let i = 0; i <= pizarra.paso && i < jugada.pasos.length; i++) {
+      const paso = jugada.pasos[i];
+      Object.assign(nuestros, paso.mover || {});
+      Object.assign(rivales, paso.rivales || {});
+      if (paso.balon) balon = paso.balon;
+      texto = paso.texto;
+    }
+  }
+  return { nuestros, rivales, balon, texto };
+}
 
 function campoFutbol7() {
   const linea = { fill: 'none', stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8 };
@@ -3124,124 +3230,143 @@ function campoFutbol7() {
   ];
 }
 
-/** Dibuja el campo una vez. Luego solo se mueven las fichas, para que se vea el movimiento. */
 function construirCampoPizarra() {
   const sistema = sistemaActual();
-  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: `campo fase-${pizarra.fase}`, role: 'img',
-    'aria-label': `Sistema ${sistema.nombre}, fase ${FASES[pizarra.fase].etiqueta}` },
-    svg('defs', {},
-      ['ataque', 'defensa'].map((t) =>
-        svg('marker', { id: `punta-${t}`, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 4, markerHeight: 4, orient: 'auto-start-reverse' },
-          svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: t === 'defensa' ? '#3b82f6' : '#ef4444' })))),
-    svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS'),
+  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo', role: 'img',
+    'aria-label': `Pizarra del sistema ${sistema.nombre}` },
+    svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS ↑'),
     campoFutbol7());
 
-  campo.appendChild(svg('line', { class: 'flecha-pizarra', 'stroke-width': 1.4, 'stroke-linecap': 'round', x1: 0, y1: 0, x2: 0, y2: 0, opacity: 0 }));
+  Object.keys(RIVALES).forEach((id) => {
+    const [x, y] = RIVALES[id];
+    campo.appendChild(svg('g', { class: 'rival', 'data-rival': id, transform: `translate(${x} ${y})` },
+      svg('circle', { r: 3.4 })));
+  });
 
   sistema.posiciones.forEach((pos) => {
     const [x, y] = pos.base;
-    const g = svg('g', {
-      class: 'ficha', transform: `translate(${x} ${y})`,
-      'data-posicion': pos.id, tabindex: '0', role: 'button', 'aria-label': pos.nombre,
-    },
-      svg('circle', { r: 6.2 }),
-      svg('text', { y: 2, 'text-anchor': 'middle', class: 'dorsal-ficha' }, pos.corto));
+    const g = svg('g', { class: 'ficha', transform: `translate(${x} ${y})`,
+      'data-posicion': pos.id, tabindex: '0', role: 'button', 'aria-label': pos.nombre },
+      svg('circle', { r: 4.6 }),
+      svg('text', { y: 1.5, 'text-anchor': 'middle', class: 'dorsal-ficha' }, pos.corto));
     const elegir = () => { pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id; pintarPizarra(); };
     g.addEventListener('click', elegir);
     g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegir(); } });
     campo.appendChild(g);
   });
+
+  campo.appendChild(svg('g', { class: 'balon', transform: 'translate(50 138)', opacity: 0 },
+    svg('circle', { r: 2.4 }), svg('circle', { r: 1, class: 'balon-centro' })));
   return campo;
 }
 
-/** Mueve las fichas al sitio de la fase. Como el campo no se rehace, se ve el desplazamiento. */
-function moverFichas(campo) {
-  const sistema = sistemaActual();
-  campo.setAttribute('class', `campo fase-${pizarra.fase}`);
-  sistema.posiciones.forEach((pos) => {
-    const g = campo.querySelector(`[data-posicion="${pos.id}"]`);
+/** Coloca fichas, rivales y balón donde toque. El campo no se rehace: por eso se ve el movimiento. */
+function moverPizarra(campo) {
+  const { nuestros, rivales, balon } = fotograma();
+  const jugada = jugadaActual();
+  campo.setAttribute('class', `campo${jugada ? ` jugada-${jugada.tipo}` : ''}`);
+  Object.entries(nuestros).forEach(([id, [x, y]]) => {
+    const g = campo.querySelector(`[data-posicion="${id}"]`);
     if (!g) return;
-    const [x, y] = sitio(pos, pizarra.fase);
     g.setAttribute('transform', `translate(${x} ${y})`);
-    g.classList.toggle('elegida', pos.id === pizarra.posicion);
+    g.classList.toggle('elegida', id === pizarra.posicion);
   });
-
-  const flecha = campo.querySelector('.flecha-pizarra');
-  const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
-  if (!flecha) return;
-  if (!elegida || pizarra.fase === 'base') return flecha.setAttribute('opacity', '0');
-  const [x1, y1] = elegida.base;
-  const [x2, y2] = sitio(elegida, pizarra.fase);
-  if (Math.hypot(x2 - x1, y2 - y1) < 3) return flecha.setAttribute('opacity', '0');
-  const color = pizarra.fase === 'defensa' ? '#3b82f6' : '#ef4444';
-  Object.entries({ x1, y1, x2, y2, opacity: 1, stroke: color, 'marker-end': `url(#punta-${pizarra.fase})` })
-    .forEach(([k, v]) => flecha.setAttribute(k, v));
-  if (pizarra.fase === 'defensa') flecha.setAttribute('stroke-dasharray', '3 2');
-  else flecha.removeAttribute('stroke-dasharray');
+  Object.entries(rivales).forEach(([id, [x, y]]) => {
+    const g = campo.querySelector(`[data-rival="${id}"]`);
+    if (g) g.setAttribute('transform', `translate(${x} ${y})`);
+  });
+  const pelota = campo.querySelector('.balon');
+  if (!pelota) return;
+  pelota.setAttribute('opacity', balon ? '1' : '0');
+  if (balon) pelota.setAttribute('transform', `translate(${balon[0]} ${balon[1]})`);
 }
 
 function pintarPizarra() {
   const caja = $('#pizarra');
   if (!caja) return;
   const sistema = sistemaActual();
-  // El campo se reaprovecha mientras no se cambie de sistema: así las fichas se deslizan.
+  const jugada = jugadaActual();
+  const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
+  const { texto } = fotograma();
+
   let campo = caja.querySelector('.campo');
   if (!campo || campo.dataset.sistema !== sistema.id) {
     campo = construirCampoPizarra();
     campo.dataset.sistema = sistema.id;
   }
-  const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
 
   const botonSistema = (s) => h('button', {
     type: 'button', class: `chip-sistema${s.id === pizarra.sistema ? ' puesto' : ''}`,
-    onclick: () => { pizarra.sistema = s.id; pizarra.posicion = null; pararBucle(); pintarPizarra(); },
+    onclick: () => { pararJugada(); pizarra.sistema = s.id; pizarra.jugada = null; pizarra.paso = 0; pizarra.posicion = null; pintarPizarra(); },
   }, h('strong', { text: s.nombre }), h('small', { text: s.apodo }));
 
-  const botonFase = (clave) => h('button', {
-    type: 'button', class: `chip-fase ${clave}${pizarra.fase === clave ? ' puesto' : ''}`,
-    onclick: () => { pararBucle(); pizarra.fase = clave; pintarPizarra(); },
-  }, FASES[clave].etiqueta);
+  const botonJugada = (j) => h('button', {
+    type: 'button', class: `chip-jugada ${j.tipo}${j.id === pizarra.jugada ? ' puesto' : ''}`,
+    onclick: () => {
+      pararJugada();
+      pizarra.jugada = j.id === pizarra.jugada ? null : j.id;
+      pizarra.paso = 0;
+      pintarPizarra();
+      if (pizarra.jugada) arrancarJugada();
+    },
+  }, j.nombre);
 
   pintar(caja,
     h('div', { class: 'sistemas' }, SISTEMAS.map(botonSistema)),
     h('p', { class: 'apagado resumen-sistema', text: sistema.resumen }),
+    h('div', { class: 'jugadas' },
+      h('span', { class: 'etiqueta-jugadas', text: 'Con balón' }),
+      sistema.jugadas.filter((j) => j.tipo === 'ataque').map(botonJugada),
+      h('span', { class: 'etiqueta-jugadas', text: 'Sin balón' }),
+      sistema.jugadas.filter((j) => j.tipo === 'defensa').map(botonJugada)),
     campo,
-    h('div', { class: 'fases' },
-      ['base', 'defensa', 'ataque'].map(botonFase),
-      h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarBucle },
-        pizarra.bucle ? '⏸ Parar' : '▶ Ver jugada')),
-    h('div', { class: 'posiciones-pizarra' }, sistema.posiciones.map((pos) =>
-      h('button', {
-        type: 'button', class: `chip-posicion${pos.id === pizarra.posicion ? ' puesto' : ''}`,
-        onclick: () => { pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id; pintarPizarra(); },
-      }, pos.corto))),
+    jugada
+      ? h('div', { class: 'mandos-jugada' },
+          h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Paso anterior', onclick: () => irAPaso(pizarra.paso - 1) }, '‹'),
+          h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarJugada },
+            pizarra.bucle ? '⏸ Parar' : '▶ Ver jugada'),
+          h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Paso siguiente', onclick: () => irAPaso(pizarra.paso + 1) }, '›'),
+          h('span', { class: 'cuenta-pasos', text: `Paso ${pizarra.paso + 1} de ${jugada.pasos.length}` }))
+      : null,
     h('div', { class: 'explica-pizarra' },
-      elegida
-        ? [h('h3', {}, elegida.nombre),
-           h('p', { class: 'en-defensa' }, h('strong', { text: 'Defendiendo: ' }), elegida.txtDefensa),
-           h('p', { class: 'en-ataque' }, h('strong', { text: 'Atacando: ' }), elegida.txtAtaque)]
-        : h('p', { class: 'apagado', text: 'Toca una posición del campo o de la lista para ver qué hace al defender y al atacar.' })));
+      jugada
+        ? [h('h3', {}, jugada.nombre), h('p', { class: `paso-${jugada.tipo}`, text: texto })]
+        : elegida
+          ? [h('h3', {}, elegida.nombre),
+             h('p', { class: 'en-defensa' }, h('strong', { text: 'Defendiendo: ' }), elegida.txtDefensa),
+             h('p', { class: 'en-ataque' }, h('strong', { text: 'Atacando: ' }), elegida.txtAtaque)]
+          : h('p', { class: 'apagado', text: 'Elige una jugada para verla paso a paso, o toca una ficha del campo para saber qué hace esa posición.' })),
+    h('p', { class: 'apagado pie-pizarra' }, h('span', { class: 'punto nuestro' }), ' nosotros · ',
+      h('span', { class: 'punto rival' }), ' rival · ',
+      h('span', { class: 'punto pelota' }), ' balón'));
 
-  // Se fuerza al navegador a situar el campo antes de mover: así hay transición y no un salto.
-  // (Con requestAnimationFrame no bastaba: en una pestaña en segundo plano no se dispara.)
   campo.getBoundingClientRect();
-  moverFichas(campo);
+  moverPizarra(campo);
 }
 
-/** El bucle: posición → defensa → ataque → posición, para verlo como una jugada. */
-function alternarBucle() {
-  if (pizarra.bucle) return pararBucle(), pintarPizarra();
-  const orden = ['base', 'defensa', 'ataque'];
-  let i = orden.indexOf(pizarra.fase);
-  pizarra.bucle = setInterval(() => {
-    i = (i + 1) % orden.length;
-    pizarra.fase = orden[i];
-    pintarPizarra();
-  }, 2200);
+function irAPaso(n) {
+  const jugada = jugadaActual();
+  if (!jugada) return;
+  pararJugada();
+  pizarra.paso = (n + jugada.pasos.length) % jugada.pasos.length;
   pintarPizarra();
 }
 
-function pararBucle() {
+function arrancarJugada() {
+  const jugada = jugadaActual();
+  if (!jugada || pizarra.bucle) return;
+  pizarra.bucle = setInterval(() => {
+    pizarra.paso = (pizarra.paso + 1) % jugada.pasos.length;
+    pintarPizarra();
+  }, PASO_MS);
+  pintarPizarra();
+}
+
+function alternarJugada() {
+  if (pizarra.bucle) { pararJugada(); pintarPizarra(); } else arrancarJugada();
+}
+
+function pararJugada() {
   if (pizarra.bucle) clearInterval(pizarra.bucle);
   pizarra.bucle = null;
 }

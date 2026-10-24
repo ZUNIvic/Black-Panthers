@@ -1294,3 +1294,55 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 @media (prefers-reduced-motion: reduce) {
   #pizarra .ficha { transition: none; }
 }
+
+/* ═════════ Ajustes finos: partido nuestro, entreno y pizarra v2 ═════════ */
+.partido.el-nuestro {
+  background: linear-gradient(0deg, rgba(79, 139, 245, 0.24), rgba(79, 139, 245, 0.24)), var(--panel);
+  border-color: #3a6fd8;
+  box-shadow: inset 3px 0 0 #4f8bf5;
+}
+
+/* El próximo entreno, más pequeño en todas las pantallas */
+.tarjeta-grande.entreno { max-width: 420px; margin-left: auto; margin-right: auto; padding: 12px 14px; }
+.tarjeta-grande.entreno .sobretitulo { font-size: 0.68rem; margin-bottom: 6px; }
+.tarjeta-grande.entreno .icono-grande { margin: 0; }
+.tarjeta-grande.entreno .icono-grande svg { width: 26px; height: 26px; }
+.tarjeta-grande.entreno .cuando { margin-top: 6px; gap: 2px 10px; }
+.tarjeta-grande.entreno .cuando .dia,
+.tarjeta-grande.entreno .cuando .hora { font-size: 1.25rem; }
+.tarjeta-grande.entreno .cuando .falta { font-size: 0.75rem; }
+.tarjeta-grande.entreno .donde { margin-top: 6px; font-size: 0.8rem; }
+.tarjeta-grande.entreno .donde svg { width: 15px; height: 15px; }
+.tarjeta-grande.entreno .nota { font-size: 0.75rem; margin-top: 6px; }
+.tarjeta-grande.entreno .acciones-tarjeta { margin-top: 8px; }
+.tarjeta-grande.entreno .boton,
+.tarjeta-grande.entreno .boton-secundario { padding: 7px 10px; font-size: 0.8rem; min-height: 36px; }
+
+/* Pizarra: jugadas, rivales y balón */
+.jugadas { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.etiqueta-jugadas {
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--texto-3); width: 100%; margin-top: 2px;
+}
+.chip-jugada {
+  cursor: pointer; font-weight: 700; font-size: 0.8rem; padding: 7px 11px; border-radius: 999px; min-height: 36px;
+  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
+}
+.chip-jugada.ataque.puesto { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+.chip-jugada.defensa.puesto { background: #4f8bf5; border-color: #4f8bf5; color: #000; }
+#pizarra .rival circle { fill: #e8e8e8; stroke: #2b2b2b; stroke-width: 0.8; }
+#pizarra .rival { transition: transform 2.4s cubic-bezier(0.4, 0, 0.2, 1); }
+#pizarra .ficha { transition: transform 2.4s cubic-bezier(0.4, 0, 0.2, 1); }
+#pizarra .balon { transition: transform 1.6s cubic-bezier(0.3, 0, 0.2, 1), opacity 0.4s; }
+#pizarra .balon circle { fill: #fff; stroke: #111; stroke-width: 0.7; }
+#pizarra .balon .balon-centro { fill: #111; stroke: none; }
+#pizarra .dorsal-ficha { font-size: 3.4px; }
+.mandos-jugada { display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.cuenta-pasos { font-size: 0.78rem; color: var(--texto-3); font-weight: 700; }
+.explica-pizarra .paso-ataque { border-left: 3px solid var(--rojo); padding-left: 8px; }
+.explica-pizarra .paso-defensa { border-left: 3px solid #4f8bf5; padding-left: 8px; }
+.pie-pizarra { display: flex; align-items: center; gap: 4px; justify-content: center; font-size: 0.72rem; margin: 0; }
+.pie-pizarra .punto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.pie-pizarra .punto.nuestro { background: var(--naranja); }
+.pie-pizarra .punto.rival { background: #e8e8e8; }
+.pie-pizarra .punto.pelota { background: #fff; border: 2px solid #111; }
