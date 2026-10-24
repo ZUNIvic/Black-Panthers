@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=36';
-import { cargarCopaFacil } from './copafacil.js?v=36';
-import { leerHoja, enviarHoja } from './hoja.js?v=36';
+import { CONFIG } from './config.js?v=37';
+import { cargarCopaFacil } from './copafacil.js?v=37';
+import { leerHoja, enviarHoja } from './hoja.js?v=37';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -151,6 +151,7 @@ const esStaff = () => estado.staff && hayHoja();
 const PERMISOS = {
   convocar: ['staff'], comentar: ['staff'], tesoreria: ['tesoreria'],
   mvp: ['staff'], // el MVP elegido a mano
+  jugada: ['staff'], // grabar jugadas en la pizarra
   notas: ['staff'], // las notas del MVP en la plantilla
   entradas: ['staff'], // quién entra en la web
   votos: ['staff'],    // el recuento de la votación, secreto para los jugadores
@@ -3191,9 +3192,28 @@ const SISTEMAS = [
 ];
 
 let pizarra = { sistema: SISTEMAS[0].id, jugada: null, paso: 0, posicion: null, bucle: null };
+let grabando = null; // { nombre, tipo, pasos: [{texto, posiciones}], id }
+
+/** "por:50,138|li:22,110" ⇄ { por: [50,138], li: [22,110] } */
+const aTexto = (sitios) => Object.entries(sitios).map(([k, [x, y]]) => `${k}:${Math.round(x)},${Math.round(y)}`).join('|');
+function aSitios(texto) {
+  const res = {};
+  String(texto || '').split('|').forEach((trozo) => {
+    const [id, par] = trozo.split(':');
+    const [x, y] = String(par || '').split(',').map(Number);
+    if (id && Number.isFinite(x) && Number.isFinite(y)) res[id] = [x, y];
+  });
+  return res;
+}
+
+/** Las jugadas que ha grabado el cuerpo técnico, para el sistema que se está viendo. */
+const jugadasGrabadas = () => (estado.hoja?.jugadas || [])
+  .filter((j) => !j.sistema || j.sistema === pizarra.sistema)
+  .map((j) => ({ ...j, grabada: true, pasos: j.pasos.map((x) => ({ texto: x.texto, abs: aSitios(x.posiciones) })) }));
 
 const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
-const jugadaActual = () => sistemaActual().jugadas.find((x) => x.id === pizarra.jugada) || null;
+const todasLasJugadas = () => [...jugadasGrabadas(), ...sistemaActual().jugadas];
+const jugadaActual = () => todasLasJugadas().find((x) => x.id === pizarra.jugada) || null;
 
 /** Dónde está cada cosa en el paso que toca: lo que no se mueve, se queda en su sitio. */
 function fotograma() {
@@ -3204,12 +3224,24 @@ function fotograma() {
   const rivales = { ...RIVALES };
   let balon = null;
   let texto = '';
+  if (grabando) {
+    // Mientras se graba manda lo que haya en el campo, que lo mueve el dedo.
+    return { nuestros, rivales, balon, texto: '' };
+  }
   if (jugada) {
     for (let i = 0; i <= pizarra.paso && i < jugada.pasos.length; i++) {
       const paso = jugada.pasos[i];
-      Object.assign(nuestros, paso.mover || {});
-      Object.assign(rivales, paso.rivales || {});
-      if (paso.balon) balon = paso.balon;
+      if (paso.abs) {
+        Object.keys(paso.abs).forEach((id) => {
+          if (id === 'balon') balon = paso.abs[id];
+          else if (id in rivales) rivales[id] = paso.abs[id];
+          else nuestros[id] = paso.abs[id];
+        });
+      } else {
+        Object.assign(nuestros, paso.mover || {});
+        Object.assign(rivales, paso.rivales || {});
+        if (paso.balon) balon = paso.balon;
+      }
       texto = paso.texto;
     }
   }
@@ -3232,7 +3264,7 @@ function campoFutbol7() {
 
 function construirCampoPizarra() {
   const sistema = sistemaActual();
-  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo', role: 'img',
+  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo campo-pizarra', role: 'img',
     'aria-label': `Pizarra del sistema ${sistema.nombre}` },
     svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS ↑'),
     campoFutbol7());
@@ -3257,14 +3289,64 @@ function construirCampoPizarra() {
 
   campo.appendChild(svg('g', { class: 'balon', transform: 'translate(50 138)', opacity: 0 },
     svg('circle', { r: 2.4 }), svg('circle', { r: 1, class: 'balon-centro' })));
+  prepararArrastre(campo);
   return campo;
+}
+
+/** Con la grabación abierta, las fichas, los rivales y el balón se arrastran con el dedo. */
+function prepararArrastre(campo) {
+  let llevando = null;
+  const punto = (ev) => {
+    const caja = campo.getBoundingClientRect();
+    return [
+      Math.max(2, Math.min(98, ((ev.clientX - caja.left) / caja.width) * 100)),
+      Math.max(2, Math.min(ALTO_CAMPO - 2, ((ev.clientY - caja.top) / caja.height) * ALTO_CAMPO)),
+    ];
+  };
+  campo.addEventListener('pointerdown', (ev) => {
+    if (!grabando) return;
+    const pieza = ev.target.closest('[data-posicion], [data-rival], .balon');
+    if (!pieza) return;
+    if (pieza.classList.contains('balon')) pieza.setAttribute('opacity', '1');
+    llevando = pieza;
+    pieza.classList.add('llevando');
+    try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
+    ev.preventDefault();
+  });
+  campo.addEventListener('pointermove', (ev) => {
+    if (!llevando) return;
+    const [x, y] = punto(ev);
+    llevando.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+  });
+  const soltar = () => {
+    if (!llevando) return;
+    llevando.classList.remove('llevando');
+    llevando = null;
+  };
+  campo.addEventListener('pointerup', soltar);
+  campo.addEventListener('pointercancel', soltar);
+}
+
+/** Lee del campo dónde está todo ahora mismo. */
+function leerCampo(campo) {
+  const sitios = {};
+  campo.querySelectorAll('[data-posicion], [data-rival], .balon').forEach((g) => {
+    const m = /translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec(g.getAttribute('transform') || '');
+    if (!m) return;
+    if (g.classList.contains('balon')) {
+      if (g.getAttribute('opacity') !== '0') sitios.balon = [Number(m[1]), Number(m[2])];
+    } else {
+      sitios[g.dataset.posicion || g.dataset.rival] = [Number(m[1]), Number(m[2])];
+    }
+  });
+  return sitios;
 }
 
 /** Coloca fichas, rivales y balón donde toque. El campo no se rehace: por eso se ve el movimiento. */
 function moverPizarra(campo) {
   const { nuestros, rivales, balon } = fotograma();
   const jugada = jugadaActual();
-  campo.setAttribute('class', `campo${jugada ? ` jugada-${jugada.tipo}` : ''}`);
+  campo.setAttribute('class', `campo campo-pizarra${jugada ? ` jugada-${jugada.tipo}` : ''}`);
   Object.entries(nuestros).forEach(([id, [x, y]]) => {
     const g = campo.querySelector(`[data-posicion="${id}"]`);
     if (!g) return;
@@ -3288,8 +3370,9 @@ function pintarPizarra() {
   const jugada = jugadaActual();
   const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
   const { texto } = fotograma();
+  const mias = jugadasGrabadas();
 
-  let campo = caja.querySelector('.campo');
+  let campo = caja.querySelector('.campo-pizarra');
   if (!campo || campo.dataset.sistema !== sistema.id) {
     campo = construirCampoPizarra();
     campo.dataset.sistema = sistema.id;
@@ -3314,13 +3397,16 @@ function pintarPizarra() {
   pintar(caja,
     h('div', { class: 'sistemas' }, SISTEMAS.map(botonSistema)),
     h('p', { class: 'apagado resumen-sistema', text: sistema.resumen }),
-    h('div', { class: 'jugadas' },
-      h('span', { class: 'etiqueta-jugadas', text: 'Con balón' }),
+    grabando ? null : h('div', { class: 'jugadas' },
+      mias.length ? h('span', { class: 'etiqueta-jugadas', text: 'Jugadas del equipo' }) : null,
+      mias.map(botonJugada),
+      h('span', { class: 'etiqueta-jugadas', text: 'Con balón · ejemplos' }),
       sistema.jugadas.filter((j) => j.tipo === 'ataque').map(botonJugada),
-      h('span', { class: 'etiqueta-jugadas', text: 'Sin balón' }),
+      h('span', { class: 'etiqueta-jugadas', text: 'Sin balón · ejemplos' }),
       sistema.jugadas.filter((j) => j.tipo === 'defensa').map(botonJugada)),
+    grabando ? cajaGrabacion() : null,
     campo,
-    jugada
+    jugada && !grabando
       ? h('div', { class: 'mandos-jugada' },
           h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Paso anterior', onclick: () => irAPaso(pizarra.paso - 1) }, '‹'),
           h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarJugada },
@@ -3328,7 +3414,7 @@ function pintarPizarra() {
           h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Paso siguiente', onclick: () => irAPaso(pizarra.paso + 1) }, '›'),
           h('span', { class: 'cuenta-pasos', text: `Paso ${pizarra.paso + 1} de ${jugada.pasos.length}` }))
       : null,
-    h('div', { class: 'explica-pizarra' },
+    grabando ? null : h('div', { class: 'explica-pizarra' },
       jugada
         ? [h('h3', {}, jugada.nombre), h('p', { class: `paso-${jugada.tipo}`, text: texto })]
         : elegida
@@ -3336,12 +3422,99 @@ function pintarPizarra() {
              h('p', { class: 'en-defensa' }, h('strong', { text: 'Defendiendo: ' }), elegida.txtDefensa),
              h('p', { class: 'en-ataque' }, h('strong', { text: 'Atacando: ' }), elegida.txtAtaque)]
           : h('p', { class: 'apagado', text: 'Elige una jugada para verla paso a paso, o toca una ficha del campo para saber qué hace esa posición.' })),
+    !grabando && permitido('jugada')
+      ? h('div', { class: 'fila-acciones' },
+          h('button', { type: 'button', class: 'boton', onclick: empezarGrabacion }, '● Grabar una jugada'),
+          jugada?.grabada
+            ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) }, 'Borrar esta jugada')
+            : null)
+      : null,
     h('p', { class: 'apagado pie-pizarra' }, h('span', { class: 'punto nuestro' }), ' nosotros · ',
       h('span', { class: 'punto rival' }), ' rival · ',
       h('span', { class: 'punto pelota' }), ' balón'));
 
   campo.getBoundingClientRect();
   moverPizarra(campo);
+}
+
+/** El panel que sale mientras se graba: mover, añadir pasos y guardar. */
+function cajaGrabacion() {
+  return h('div', { class: 'grabacion' },
+    h('h3', {}, '● Grabando: ', h('span', { class: 'nombre-grabacion', text: grabando.nombre })),
+    h('p', { class: 'ayuda', text: grabando.pasos.length
+      ? 'Mueve las fichas, los rivales y el balón al sitio del paso siguiente y pulsa «Guardar este paso».'
+      : 'Coloca a todos donde empieza la jugada y pulsa «Guardar este paso». Luego los mueves y guardas el siguiente.' }),
+    h('label', { class: 'campo' },
+      h('span', { text: `Qué pasa en el paso ${grabando.pasos.length + 1}` }),
+      h('input', { type: 'text', id: 'texto-paso', maxlength: 160, placeholder: 'El lateral se abre y el portero se la da…' })),
+    h('div', { class: 'fila-acciones' },
+      h('button', { type: 'button', class: 'boton', onclick: guardarPaso }, `+ Guardar este paso (${grabando.pasos.length})`),
+      grabando.pasos.length
+        ? h('button', { type: 'button', class: 'boton-secundario', onclick: quitarUltimoPaso }, 'Quitar el último')
+        : null),
+    grabando.pasos.length
+      ? h('ol', { class: 'pasos-grabados' }, grabando.pasos.map((x, i) =>
+          h('li', {}, h('strong', { text: `${i + 1}. ` }), x.texto || '(sin texto)')))
+      : null,
+    h('div', { class: 'fila-acciones' },
+      h('button', { type: 'button', class: 'boton', disabled: !grabando.pasos.length, onclick: guardarJugadaGrabada }, 'Guardar la jugada'),
+      h('button', { type: 'button', class: 'boton-secundario', onclick: () => { grabando = null; pintarPizarra(); } }, 'Cancelar')));
+}
+
+function empezarGrabacion() {
+  const nombre = (prompt('Nombre de la jugada (por ejemplo: «Saque de banda en campo propio»)') || '').trim();
+  if (!nombre) return;
+  const esDefensa = confirm('¿Es una jugada SIN balón (defensa)?\n\nAceptar = sin balón · Cancelar = con balón');
+  pararJugada();
+  pizarra.jugada = null;
+  pizarra.paso = 0;
+  pizarra.posicion = null;
+  grabando = { id: `j${Date.now()}`, nombre: nombre.slice(0, 60), tipo: esDefensa ? 'defensa' : 'ataque', pasos: [] };
+  pintarPizarra();
+}
+
+function guardarPaso() {
+  const campo = $('#pizarra .campo-pizarra');
+  if (!campo || !grabando) return;
+  const texto = ($('#texto-paso')?.value || '').trim();
+  grabando.pasos.push({ texto, posiciones: aTexto(leerCampo(campo)) });
+  if (grabando.pasos.length >= 12) aviso('Doce pasos es el máximo', true);
+  pintarPizarra();
+}
+
+function quitarUltimoPaso() {
+  grabando.pasos.pop();
+  pintarPizarra();
+}
+
+async function guardarJugadaGrabada() {
+  if (!grabando?.pasos.length) return;
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'jugada', pin: recuperar(CLAVE_PIN),
+    id: grabando.id, nombre: grabando.nombre, tipo: grabando.tipo, sistema: pizarra.sistema,
+    pasos: grabando.pasos,
+  }).catch(() => null);
+  if (r?.ok) {
+    aviso('Jugada guardada ✓');
+    pizarra.jugada = grabando.id;
+    pizarra.paso = 0;
+    grabando = null;
+    cargarHoja();
+  } else {
+    aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+  }
+}
+
+async function borrarJugada(jugada) {
+  if (!confirm(`¿Borrar la jugada «${jugada.nombre}»?`)) return;
+  const r = await enviarHoja(CONFIG.hoja, { accion: 'jugada', pin: recuperar(CLAVE_PIN), id: jugada.id, pasos: [] }).catch(() => null);
+  if (r?.ok) {
+    aviso('Jugada borrada ✓');
+    pizarra.jugada = null;
+    cargarHoja();
+  } else {
+    aviso('No se ha podido borrar', true);
+  }
 }
 
 function irAPaso(n) {

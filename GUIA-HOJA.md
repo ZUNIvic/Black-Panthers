@@ -160,6 +160,21 @@ Al entrar, después del PIN, cada uno **elige su nombre** una vez en su móvil. 
 - Se apunta como mucho una entrada por jugador cada media hora, para no llenar la hoja.
 - Queda en la pestaña **ENTRADAS**.
 
+### La pizarra y las jugadas
+
+En **Estrategia/Equipo** hay un campo de fútbol 7 con los dos sistemas, el equipo rival y el balón.
+Con el PIN del míster o el tuyo aparece **«● Grabar una jugada»**:
+
+1. Le pones nombre y dices si es con balón (ataque) o sin él (defensa).
+2. **Arrastras con el dedo** a los tuyos, a los rivales y al balón hasta dejarlos como empieza la jugada,
+   escribes qué pasa y pulsas **«Guardar este paso»**.
+3. Mueves lo que se mueva en la siguiente acción y guardas otro paso. Hasta doce.
+4. **«Guardar la jugada»** y ya la ve todo el equipo, con botones de ir hacia delante y atrás y un
+   **▶ Ver jugada** que la reproduce sola.
+
+Las jugadas quedan en la pestaña **JUGADAS**, una fila por paso. Para borrar una, se abre y se pulsa
+«Borrar esta jugada». Los ejemplos que vienen de serie no se pueden borrar: están en el código.
+
 ### Quién va al entreno
 
 Debajo del cuadro amarillo del próximo entreno hay un desplegable **«Jugadores que van al entreno»**:

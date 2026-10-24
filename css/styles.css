@@ -1253,7 +1253,7 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .chip-sistema.puesto { background: var(--naranja); border-color: var(--naranja); color: #000; }
 .chip-sistema.puesto small { color: #3d1c00; }
 .resumen-sistema { margin: 0; font-size: 0.85rem; }
-#pizarra .campo {
+#pizarra .campo-pizarra {
   width: 100%; max-width: 330px; height: auto; aspect-ratio: 100 / 150; margin: 0 auto; display: block;
   border-radius: 12px; border: 1px solid var(--borde); background: #14532d;
 }
@@ -1346,3 +1346,21 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .pie-pizarra .punto.nuestro { background: var(--naranja); }
 .pie-pizarra .punto.rival { background: #e8e8e8; }
 .pie-pizarra .punto.pelota { background: #fff; border: 2px solid #111; }
+
+/* Grabadora de jugadas */
+.grabacion {
+  background: #1a0f00; border: 2px solid var(--naranja); border-radius: var(--radio);
+  padding: 12px; display: grid; gap: 8px;
+}
+.grabacion h3 { font-size: 0.9rem; color: var(--naranja); display: flex; gap: 6px; align-items: baseline; }
+.grabacion .nombre-grabacion { color: var(--texto); font-family: var(--display); font-size: 1.1rem; }
+.grabacion .ayuda { margin: 0; }
+.grabacion .campo { margin: 0; }
+.grabacion input[type="text"] {
+  width: 100%; background: var(--negro); border: 1px solid var(--borde); border-radius: 8px;
+  color: var(--texto); padding: 9px; font: inherit; margin-top: 4px;
+}
+.pasos-grabados { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 0.82rem; color: var(--texto-2); }
+#pizarra .ficha.llevando circle, #pizarra .rival.llevando circle { stroke: #fff; stroke-width: 1.6; }
+#pizarra .llevando { transition: none; }
+#pizarra .campo-pizarra { touch-action: manipulation; }
