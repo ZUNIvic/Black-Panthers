@@ -1183,3 +1183,114 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .opcion-jugador .dijo { font-weight: 700; }
 .opcion-jugador .dijo.voy { color: var(--verde); }
 .opcion-jugador .dijo.no { color: var(--rojo); }
+
+/* ═════════ Reorganización de pestañas ═════════ */
+.hero-mini-texto { flex: 1 1 150px; min-width: 0; display: grid; gap: 2px; }
+.hero-mini .hero-liga { margin: 0; font-size: 0.78rem; }
+.tarjeta-grande.primero { margin-top: 10px; }
+
+/* Bloques plegables */
+.bloque.plegable { padding: 0; overflow: hidden; }
+.bloque.plegable > summary {
+  cursor: pointer; list-style: none; padding: 12px 14px;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.bloque.plegable > summary::-webkit-details-marker { display: none; }
+.bloque.plegable > summary::after { content: '+'; margin-left: auto; color: var(--naranja); font-size: 1.3rem; line-height: 1; }
+.bloque.plegable[open] > summary::after { content: '–'; }
+.bloque.plegable > summary small { color: var(--texto-3); font-size: 0.78rem; }
+.titulo-plegable {
+  font-family: var(--display); font-weight: 400; font-size: 1.25rem;
+  letter-spacing: 0.02em; text-transform: uppercase;
+}
+.bloque.plegable.naranja > summary { background: var(--naranja); color: #000; }
+.bloque.plegable.naranja > summary::after { color: #000; }
+.bloque.plegable > *:not(summary) { padding: 0 14px 14px; }
+.bloque.plegable > .tabla-scroll { margin: 0 14px 14px; padding: 0; }
+
+/* Jornadas de la liga */
+.jornadas-liga { display: grid; gap: 6px; }
+.jornada-liga { background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); }
+.jornada-liga > summary {
+  cursor: pointer; list-style: none; padding: 10px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.jornada-liga > summary::-webkit-details-marker { display: none; }
+.jornada-liga .jornada-nombre { font-weight: 700; }
+.jornada-liga .jornada-nuestro { font-weight: 800; color: var(--naranja); font-size: 0.85rem; text-align: right; }
+.jornada-liga .apagado { font-size: 0.8rem; }
+.partidos-jornada { display: grid; gap: 8px; padding: 0 10px 10px; }
+.fila-partido {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; padding: 7px 9px;
+}
+.equipo-mini { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fila-partido > .equipo-mini:last-child { flex-direction: row-reverse; text-align: right; }
+.equipo-mini img, .equipo-mini .foto-vacia { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.equipo-mini .nombre { font-size: 0.8rem; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marcador-mini { font-family: var(--display); font-size: 1.05rem; white-space: nowrap; padding: 0 4px; }
+.marcador-mini.pendiente { color: var(--texto-3); font-size: 0.9rem; }
+
+/* Recuento grande de convocatorias */
+.recuento-grande {
+  display: grid; justify-items: center; gap: 2px; padding: 14px;
+  background: var(--naranja); border-radius: var(--radio); color: #000; margin-bottom: 14px;
+}
+.recuento-grande.completo { background: var(--verde); }
+.recuento-grande .cifra { font-family: var(--display); font-size: 3rem; line-height: 1; }
+.recuento-grande .de { font-weight: 800; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.06em; }
+.recuento-grande .pie-recuento { font-size: 0.8rem; font-weight: 600; opacity: 0.85; }
+
+/* ═════════ Pizarra de estrategia ═════════ */
+#pizarra { display: grid; gap: 10px; }
+.sistemas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chip-sistema {
+  display: grid; gap: 1px; cursor: pointer; padding: 8px 10px; border-radius: 10px;
+  background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto); text-align: center;
+}
+.chip-sistema strong { font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.04em; }
+.chip-sistema small { font-size: 0.7rem; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.chip-sistema.puesto { background: var(--naranja); border-color: var(--naranja); color: #000; }
+.chip-sistema.puesto small { color: #3d1c00; }
+.resumen-sistema { margin: 0; font-size: 0.85rem; }
+#pizarra .campo {
+  width: 100%; max-width: 330px; height: auto; aspect-ratio: 100 / 150; margin: 0 auto; display: block;
+  border-radius: 12px; border: 1px solid var(--borde); background: #14532d;
+}
+#pizarra .rotulo-campo {
+  font-size: 4px; font-weight: 800; letter-spacing: 1px; fill: rgba(255, 255, 255, 0.45);
+  stroke: none; font-family: var(--cuerpo);
+}
+#pizarra .ficha { cursor: pointer; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+#pizarra .ficha circle { fill: var(--naranja); stroke: #000; stroke-width: 1; transition: fill 0.3s; }
+#pizarra .ficha.elegida circle { fill: #fff; stroke-width: 1.6; }
+#pizarra .fase-defensa .ficha circle { fill: #4f8bf5; }
+#pizarra .fase-ataque .ficha circle { fill: #ff6b00; }
+#pizarra .ficha.elegida circle { fill: #fff; }
+#pizarra .dorsal-ficha { font-size: 4.4px; font-weight: 800; fill: #000; stroke: none; font-family: var(--cuerpo); }
+#pizarra .flecha-pizarra { pointer-events: none; }
+.fases { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.chip-fase {
+  cursor: pointer; font-weight: 700; font-size: 0.85rem; padding: 8px 12px; border-radius: 999px; min-height: 40px;
+  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
+}
+.chip-fase.puesto { color: #000; font-weight: 800; }
+.chip-fase.base.puesto { background: var(--naranja); border-color: var(--naranja); }
+.chip-fase.defensa.puesto { background: #4f8bf5; border-color: #4f8bf5; }
+.chip-fase.ataque.puesto { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+.chip-fase.jugar { margin-left: auto; }
+.chip-fase.jugar.puesto { background: var(--verde); border-color: var(--verde); }
+.posiciones-pizarra { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.chip-posicion {
+  cursor: pointer; font-weight: 800; font-size: 0.75rem; padding: 6px 10px; border-radius: 999px; min-height: 34px;
+  background: var(--negro); border: 1px solid var(--borde); color: var(--texto-2); letter-spacing: 0.04em;
+}
+.chip-posicion.puesto { background: #fff; border-color: #fff; color: #000; }
+.explica-pizarra { background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 10px 12px; }
+.explica-pizarra h3 { font-family: var(--display); font-weight: 400; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 4px; }
+.explica-pizarra p { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.45; }
+.explica-pizarra .en-defensa strong { color: #4f8bf5; }
+.explica-pizarra .en-ataque strong { color: var(--rojo); }
+@media (prefers-reduced-motion: reduce) {
+  #pizarra .ficha { transition: none; }
+}

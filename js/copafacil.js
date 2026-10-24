@@ -86,27 +86,42 @@ export async function cargarCopaFacil({ liga, evento, equipo }) {
     return m ? Number(m[0]) : null;
   };
 
-  const nuestros = Object.entries(partidos)
-    .filter(([, m]) => m.team1 === equipo || m.team2 === equipo)
-    .map(([id, m]) => {
-      const finalizado = m.st === 3 || Boolean(m.finished);
-      const campo = campos[m.l];
-      return {
-        id,
-        jornada: numeroJornada(m.m_set),
-        fecha: m.d_i || null,
-        lugar: campo
-          ? { nombre: limpia(campo.title), direccion: limpia(campo.address), lat: campo.loc?.lat || null, lon: campo.loc?.lon || null }
-          : null,
-        local: infoEquipo(m.team1),
-        visitante: infoEquipo(m.team2),
-        golesLocal: finalizado ? m.dt?.qt_g1 ?? 0 : null,
-        golesVisitante: finalizado ? m.dt?.qt_g2 ?? 0 : null,
-        finalizado,
-        somosLocal: m.team1 === equipo,
-        alineacion: [],
-      };
-    })
+  const comoPartido = ([id, m]) => {
+    const finalizado = m.st === 3 || Boolean(m.finished);
+    const campo = campos[m.l];
+    return {
+      id,
+      jornada: numeroJornada(m.m_set),
+      fecha: m.d_i || null,
+      lugar: campo
+        ? { nombre: limpia(campo.title), direccion: limpia(campo.address), lat: campo.loc?.lat || null, lon: campo.loc?.lon || null }
+        : null,
+      local: infoEquipo(m.team1),
+      visitante: infoEquipo(m.team2),
+      golesLocal: finalizado ? m.dt?.qt_g1 ?? 0 : null,
+      golesVisitante: finalizado ? m.dt?.qt_g2 ?? 0 : null,
+      finalizado,
+      nuestro: m.team1 === equipo || m.team2 === equipo,
+      somosLocal: m.team1 === equipo,
+      alineacion: [],
+    };
+  };
+
+  // Todos los partidos del grupo, no solo los nuestros: así se ve la jornada entera.
+  const todos = Object.entries(partidos)
+    .map(comoPartido)
+    .sort((a, b) => (a.jornada ?? 99) - (b.jornada ?? 99) || (a.fecha ?? Infinity) - (b.fecha ?? Infinity));
+
+  const porJornada = [];
+  todos.forEach((m) => {
+    const clave = m.jornada ?? 0;
+    let j = porJornada.find((x) => x.numero === clave);
+    if (!j) porJornada.push((j = { numero: clave, partidos: [] }));
+    j.partidos.push(m);
+  });
+
+  const nuestros = todos
+    .filter((m) => m.nuestro)
     .sort((a, b) => (a.fecha ?? Infinity) - (b.fecha ?? Infinity) || (a.jornada ?? 99) - (b.jornada ?? 99));
 
   // Alineación de cada partido ya jugado (quién aparece en el acta de CopaFácil).
@@ -150,6 +165,7 @@ export async function cargarCopaFacil({ liga, evento, equipo }) {
     totalEquipos: clasificacion.length,
     clasificacion,
     partidos: nuestros,
+    jornadas: porJornada,
     jugadores,
     actualizado: Date.now(),
   };

@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=33';
-import { cargarCopaFacil } from './copafacil.js?v=33';
-import { leerHoja, enviarHoja } from './hoja.js?v=33';
+import { CONFIG } from './config.js?v=35';
+import { cargarCopaFacil } from './copafacil.js?v=35';
+import { leerHoja, enviarHoja } from './hoja.js?v=35';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -266,7 +266,6 @@ function pintarHero() {
   } else {
     liga.textContent = 'Liga de Veteranos F7 · El Tancat';
   }
-  $('#frase-mini').textContent = $('#frase').textContent;
   pintarMvpMini();
   pintar($('#staff-frase'), botonStaff('Cambiar frase', () => abrirMensaje('motivador')));
 }
@@ -365,6 +364,32 @@ function tarjetaEntreno() {
     e.habitual ? h('p', { class: 'nota', text: 'Horario habitual' }) : null,
     acciones,
   ];
+}
+
+/** El recuento grande de la pestaña Convocatorias: cuántos van al próximo partido. */
+function pintarResumenConvocatoria() {
+  const caja = $('#resumen-convocatoria');
+  const p = estado.cf?.partidos.find((x) => !x.finalizado);
+  $('#sub-convocatorias').textContent = p
+    ? `${p.jornada ? `Jornada ${p.jornada} · ` : ''}vs ${rivalDe(p).nombre}${p.fecha ? ` · ${diaPartido(p.fecha)}` : ''}`
+    : 'No hay partidos pendientes.';
+  if (!p || !hayHoja()) return pintar(caja);
+
+  const r = resumenConfirmaciones(p);
+  const lista = estado.hoja?.prelista?.[p.id] || [];
+  const apuntados = lista.filter((x) => x.dice === 'voy' && jugadorPorId(x.id)).length;
+
+  // Con convocatoria, lo que importa es cuántos han confirmado; antes, cuántos se han apuntado.
+  const grande = r ? `${r.confirmados.length}` : `${apuntados}`;
+  const de = r ? `de ${r.total} convocados` : `${plural(jugadores().length, 'jugador en la plantilla', 'jugadores en la plantilla')}`;
+  const pie = r
+    ? [r.bajas.length ? `${plural(r.bajas.length, 'baja', 'bajas')}` : null, r.faltan.length ? `${r.faltan.length} sin contestar` : null].filter(Boolean).join(' · ')
+    : lista.filter((x) => x.dice === 'no').length ? `${plural(lista.filter((x) => x.dice === 'no').length, 'ha dicho que no', 'han dicho que no')}` : '';
+
+  pintar(caja, h('div', { class: `recuento-grande${r && r.confirmados.length >= r.total ? ' completo' : ''}` },
+    h('span', { class: 'cifra', text: grande }),
+    h('span', { class: 'de', text: de }),
+    pie ? h('span', { class: 'pie-recuento', text: pie }) : null));
 }
 
 /** Quién va al próximo entreno. Sencillo: voy o no voy, y lo ve todo el equipo. */
@@ -1431,25 +1456,12 @@ function pintarCompeticion() {
 
   if (!cf) {
     const msg = estado.errorCf ? 'No se han podido cargar los partidos.' : 'Cargando…';
-    pintar($('#proximos'), vacio(msg));
-    pintar($('#resultados'), vacio(msg));
+    pintar($('#jornadas'), vacio(msg));
     pintar($('#clasificacion tbody'), h('tr', {}, h('td', { colspan: 10, class: 'izq' }, vacio(msg))));
     return;
   }
 
-  const proximos = cf.partidos.filter((p) => !p.finalizado);
-  const visibles = estado.verTodoCalendario ? proximos : proximos.slice(0, 3);
-  pintar($('#proximos'),
-    proximos.length ? visibles.map((p) => tarjetaPartido(p, { conConvocatoria: true })) : vacio('No quedan partidos por jugar.'),
-    proximos.length > 3
-      ? h('button', {
-          class: 'boton-secundario ver-mas', type: 'button',
-          onclick: () => { estado.verTodoCalendario = !estado.verTodoCalendario; pintarCompeticion(); },
-        }, estado.verTodoCalendario ? 'Ver menos' : `Ver calendario completo (${proximos.length})`)
-      : null);
-
-  const jugados = cf.partidos.filter((p) => p.finalizado).reverse();
-  pintar($('#resultados'), jugados.length ? jugados.map((p) => tarjetaPartido(p)) : vacio('Todavía no se ha jugado ningún partido.'));
+  pintarJornadas(cf);
 
   pintar($('#clasificacion tbody'), cf.clasificacion.map((f) =>
     h('tr', { class: f.nuestro ? 'nuestro' : '' },
@@ -1459,6 +1471,49 @@ function pintarCompeticion() {
       celda(f.j), celda(f.g), celda(f.e), celda(f.p),
       h('td', { class: 'goles-a-favor', text: f.gf }), h('td', { class: 'goles-en-contra', text: f.gc }),
       h('td', { text: f.dif > 0 ? `+${f.dif}` : f.dif }))));
+}
+
+/** La jornada que toca mirar: la del próximo partido nuestro o, si no hay, la última jugada. */
+function jornadaActual(cf) {
+  const proximo = cf.partidos.find((p) => !p.finalizado);
+  if (proximo?.jornada) return proximo.jornada;
+  const jugados = cf.partidos.filter((p) => p.finalizado);
+  return jugados.length ? jugados[jugados.length - 1].jornada : null;
+}
+
+/** Todas las jornadas del grupo con todos sus partidos, como en CopaFácil. */
+function pintarJornadas(cf) {
+  const caja = $('#jornadas');
+  const jornadas = cf.jornadas || [];
+  if (!jornadas.length) return pintar(caja, vacio('CopaFácil todavía no ha publicado el calendario.'));
+  const actual = jornadaActual(cf);
+
+  pintar(caja, jornadas.map((j) => {
+    const nuestro = j.partidos.find((p) => p.nuestro);
+    const jugados = j.partidos.filter((p) => p.finalizado).length;
+    return h('details', { class: 'jornada-liga', open: j.numero === actual },
+      h('summary', {},
+        h('span', { class: 'jornada-nombre', text: j.numero ? `Jornada ${j.numero}` : 'Sin jornada' }),
+        nuestro
+          ? h('span', { class: 'jornada-nuestro', text: resumenPartido(nuestro) })
+          : h('span', { class: 'apagado', text: `${jugados} de ${j.partidos.length} jugados` })),
+      h('div', { class: 'partidos-jornada' },
+        j.partidos.map((p) => (p.nuestro ? tarjetaPartido(p, { conConvocatoria: !p.finalizado }) : filaPartido(p)))));
+  }));
+}
+
+const resumenPartido = (p) => (p.finalizado
+  ? `${p.somosLocal ? p.golesLocal : p.golesVisitante}-${p.somosLocal ? p.golesVisitante : p.golesLocal} vs ${rivalDe(p).nombre}`
+  : `vs ${rivalDe(p).nombre}`);
+
+/** Un partido de otros equipos: escudos, nombres y marcador. */
+function filaPartido(p) {
+  const lado = (eq) => h('span', { class: 'equipo-mini' }, imagen(eq.escudo), h('span', { class: 'nombre', text: eq.nombre }));
+  return h('div', { class: 'fila-partido' },
+    lado(p.local),
+    h('span', { class: `marcador-mini${p.finalizado ? '' : ' pendiente'}`,
+      text: p.finalizado ? `${p.golesLocal} - ${p.golesVisitante}` : (p.fecha ? horaPartido(p.fecha) : 'vs') }),
+    lado(p.visitante));
 }
 
 /* ───────────────────────── 3. Tercer tiempo ───────────────────────── */
@@ -1983,6 +2038,8 @@ function pintarTodo() {
   aSalvo('pintarProximoEntreno', () => pintarProximoEntreno());
   aSalvo('pintarApuntadosEntreno', () => pintarApuntadosEntreno());
   aSalvo('pintarConvocatoriaProxima', () => pintarConvocatoriaProxima());
+  aSalvo('pintarResumenConvocatoria', () => pintarResumenConvocatoria());
+  aSalvo('pintarPizarra', () => pintarPizarra());
   aSalvo('pintarVoyRapido', () => pintarVoyRapido());
   aSalvo('pintarEstadisticas', () => pintarEstadisticas());
   aSalvo('pintarPlantilla', () => pintarPlantilla());
@@ -2939,18 +2996,254 @@ function prepararStaff() {
 
 /* ───────────────────────── Navegación ───────────────────────── */
 
-const VISTAS = ['equipo', 'competicion', 'tesoreria', 'roles', 'tercer-tiempo'];
+const VISTAS = ['competicion', 'convocatorias', 'equipo', 'tesoreria', 'tercer-tiempo'];
 
 function mostrarVista(desdeClic) {
   const pedida = location.hash.slice(1);
   if (pedida && !VISTAS.includes(pedida)) return;
-  const actual = pedida || 'equipo';
+  const actual = pedida || 'competicion';
   VISTAS.forEach((v) => { document.getElementById(v).hidden = v !== actual; });
   document.querySelectorAll('[data-pestana]').forEach((a) => {
     if (a.dataset.pestana === actual) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
   if (desdeClic) window.scrollTo({ top: 0 });
+}
+
+/* ───────────────────────── Pizarra de estrategia ─────────────────────────
+   Guía fija de sistemas de fútbol 7. No se guarda nada: es la misma para todos.
+   Atacamos hacia arriba; nuestra portería está abajo. El campo mide 100 x 150. */
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ALTO_CAMPO = 150;
+
+const svg = (etiqueta, attrs = {}, ...hijos) => {
+  const el = document.createElementNS(SVG_NS, etiqueta);
+  Object.entries(attrs).forEach(([k, v]) => { if (v !== null && v !== undefined) el.setAttribute(k, v); });
+  hijos.flat(Infinity).forEach((x) => el.appendChild(typeof x === 'string' ? document.createTextNode(x) : x));
+  return el;
+};
+
+const SISTEMAS = [
+  {
+    id: '1-3-2-1',
+    nombre: '1-3-2-1',
+    apodo: 'Tres atrás',
+    resumen: 'Tres defensas, dos medios y un punta. El más seguro atrás: la línea de tres cubre todo el ancho y los medios ayudan en las dos fases.',
+    posiciones: [
+      { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
+        defensa: [43, 140], ataque: [50, 122],
+        txtDefensa: 'Achica y manda: avisa de quién entra por detrás de la línea de tres.',
+        txtAtaque: 'Sale del área para dar salida. Con tres atrás siempre hay dos a quien pasar.' },
+      { id: 'li', nombre: 'Lateral izquierdo', corto: 'LI', base: [22, 110],
+        defensa: [22, 122], ataque: [20, 68],
+        txtDefensa: 'Si el balón viene por su banda, sale él al que lo lleva; nadie más.',
+        txtAtaque: 'Sube por fuera a dar amplitud. El otro lateral se queda: nunca suben los dos.' },
+      { id: 'dfc', nombre: 'Central', corto: 'DFC', base: [50, 115],
+        defensa: [44, 124], ataque: [50, 96],
+        txtDefensa: 'Es el jefe de la línea. No se va al balón: tapa el centro y cubre al lateral que sale.',
+        txtAtaque: 'Se queda de seguro. Es el que da la vuelta al juego si la banda está cerrada.' },
+      { id: 'ld', nombre: 'Lateral derecho', corto: 'LD', base: [78, 110],
+        defensa: [66, 120], ataque: [76, 88],
+        txtDefensa: 'Con el balón al otro lado, bascula al centro y cubre al central. Ojo al extremo que le queda lejos.',
+        txtAtaque: 'Acompaña por dentro, no por fuera: es el equilibrio si perdemos el balón.' },
+      { id: 'mi', nombre: 'Medio izquierdo', corto: 'MI', base: [33, 80],
+        defensa: [32, 96], ataque: [36, 54],
+        txtDefensa: 'Baja a ayudar a su lateral: dos contra uno en la banda del balón.',
+        txtAtaque: 'Aparece entre líneas para recibir de espaldas y girar.' },
+      { id: 'md', nombre: 'Medio derecho', corto: 'MD', base: [67, 80],
+        defensa: [56, 98], ataque: [64, 46],
+        txtDefensa: 'Cierra el centro mientras su compañero sale. Nunca se van los dos a la vez.',
+        txtAtaque: 'Llega desde atrás al área: el segundo que entra es el que marca.' },
+      { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 48],
+        defensa: [46, 72], ataque: [50, 26],
+        txtDefensa: 'No corre detrás de todos: se pone en el camino del pase y obliga a jugar por fuera.',
+        txtAtaque: 'Ataca el primer palo y arrastra al central para abrir hueco a los medios.' },
+    ],
+  },
+  {
+    id: '1-2-3-1',
+    nombre: '1-2-3-1',
+    apodo: 'Tres medios',
+    resumen: 'Dos centrales, tres medios y un punta. Más campo en el medio y bandas largas, pero los centrales se quedan solos si los medios no bajan.',
+    posiciones: [
+      { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
+        defensa: [44, 140], ataque: [50, 122],
+        txtDefensa: 'Con solo dos centrales tiene que salir a los balones largos a la espalda.',
+        txtAtaque: 'Abre juego a un central y el equipo sale jugando desde atrás.' },
+      { id: 'dfi', nombre: 'Central izquierdo', corto: 'DFI', base: [35, 115],
+        defensa: [30, 124], ataque: [36, 94],
+        txtDefensa: 'Sale al balón cuando viene por su lado; el compañero le cubre por dentro.',
+        txtAtaque: 'Conduce unos metros para obligar a salir a un rival y liberar al medio.' },
+      { id: 'dfd', nombre: 'Central derecho', corto: 'DFD', base: [65, 115],
+        defensa: [54, 122], ataque: [64, 94],
+        txtDefensa: 'Bascula al centro a cubrir. Si los dos salen a la vez, queda el campo abierto.',
+        txtAtaque: 'Se queda de seguro y da la salida al otro lado.' },
+      { id: 'mi', nombre: 'Banda izquierda', corto: 'MI', base: [20, 78],
+        defensa: [24, 100], ataque: [16, 50],
+        txtDefensa: 'Baja hasta la línea de los centrales: se defiende con cuatro, no con dos.',
+        txtAtaque: 'Pegado a la cal para estirar al equipo rival y buscar el uno contra uno.' },
+      { id: 'mc', nombre: 'Medio centro', corto: 'MC', base: [50, 85],
+        defensa: [44, 104], ataque: [50, 70],
+        txtDefensa: 'Tapa el pase al punta rival. Es la posición que más corre del sistema.',
+        txtAtaque: 'El que reparte: recibe de los centrales y cambia de banda.' },
+      { id: 'md', nombre: 'Banda derecha', corto: 'MD', base: [80, 78],
+        defensa: [68, 96], ataque: [84, 50],
+        txtDefensa: 'Si está el balón al otro lado, cierra por dentro: no se queda mirando en su banda.',
+        txtAtaque: 'Abre el campo y llega al segundo palo en los centros del otro lado.' },
+      { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 45],
+        defensa: [46, 74], ataque: [50, 24],
+        txtDefensa: 'Presiona al que saca orientando el pase hacia una banda.',
+        txtAtaque: 'Fija a los centrales para que los tres medios lleguen desde atrás.' },
+    ],
+  },
+];
+
+const FASES = {
+  base: { etiqueta: 'Posición', clase: 'base' },
+  defensa: { etiqueta: 'Defensa', clase: 'defensa' },
+  ataque: { etiqueta: 'Ataque', clase: 'ataque' },
+};
+
+let pizarra = { sistema: SISTEMAS[0].id, fase: 'base', posicion: null, bucle: null };
+
+const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
+const sitio = (pos, fase) => (fase === 'base' ? pos.base : pos[fase] || pos.base);
+
+function campoFutbol7() {
+  const linea = { fill: 'none', stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8 };
+  return [
+    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, fill: '#14532d' }),
+    svg('rect', { x: 3, y: 3, width: 94, height: ALTO_CAMPO - 6, ...linea }),
+    svg('line', { x1: 3, y1: ALTO_CAMPO / 2, x2: 97, y2: ALTO_CAMPO / 2, ...linea }),
+    svg('circle', { cx: 50, cy: ALTO_CAMPO / 2, r: 11, ...linea }),
+    svg('rect', { x: 22, y: 3, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 22, y: ALTO_CAMPO - 25, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 38, y: 0.5, width: 24, height: 4, ...linea }),
+    svg('rect', { x: 38, y: ALTO_CAMPO - 4.5, width: 24, height: 4, ...linea }),
+  ];
+}
+
+/** Dibuja el campo una vez. Luego solo se mueven las fichas, para que se vea el movimiento. */
+function construirCampoPizarra() {
+  const sistema = sistemaActual();
+  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: `campo fase-${pizarra.fase}`, role: 'img',
+    'aria-label': `Sistema ${sistema.nombre}, fase ${FASES[pizarra.fase].etiqueta}` },
+    svg('defs', {},
+      ['ataque', 'defensa'].map((t) =>
+        svg('marker', { id: `punta-${t}`, viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 4, markerHeight: 4, orient: 'auto-start-reverse' },
+          svg('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: t === 'defensa' ? '#3b82f6' : '#ef4444' })))),
+    svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS'),
+    campoFutbol7());
+
+  campo.appendChild(svg('line', { class: 'flecha-pizarra', 'stroke-width': 1.4, 'stroke-linecap': 'round', x1: 0, y1: 0, x2: 0, y2: 0, opacity: 0 }));
+
+  sistema.posiciones.forEach((pos) => {
+    const [x, y] = pos.base;
+    const g = svg('g', {
+      class: 'ficha', transform: `translate(${x} ${y})`,
+      'data-posicion': pos.id, tabindex: '0', role: 'button', 'aria-label': pos.nombre,
+    },
+      svg('circle', { r: 6.2 }),
+      svg('text', { y: 2, 'text-anchor': 'middle', class: 'dorsal-ficha' }, pos.corto));
+    const elegir = () => { pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id; pintarPizarra(); };
+    g.addEventListener('click', elegir);
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegir(); } });
+    campo.appendChild(g);
+  });
+  return campo;
+}
+
+/** Mueve las fichas al sitio de la fase. Como el campo no se rehace, se ve el desplazamiento. */
+function moverFichas(campo) {
+  const sistema = sistemaActual();
+  campo.setAttribute('class', `campo fase-${pizarra.fase}`);
+  sistema.posiciones.forEach((pos) => {
+    const g = campo.querySelector(`[data-posicion="${pos.id}"]`);
+    if (!g) return;
+    const [x, y] = sitio(pos, pizarra.fase);
+    g.setAttribute('transform', `translate(${x} ${y})`);
+    g.classList.toggle('elegida', pos.id === pizarra.posicion);
+  });
+
+  const flecha = campo.querySelector('.flecha-pizarra');
+  const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
+  if (!flecha) return;
+  if (!elegida || pizarra.fase === 'base') return flecha.setAttribute('opacity', '0');
+  const [x1, y1] = elegida.base;
+  const [x2, y2] = sitio(elegida, pizarra.fase);
+  if (Math.hypot(x2 - x1, y2 - y1) < 3) return flecha.setAttribute('opacity', '0');
+  const color = pizarra.fase === 'defensa' ? '#3b82f6' : '#ef4444';
+  Object.entries({ x1, y1, x2, y2, opacity: 1, stroke: color, 'marker-end': `url(#punta-${pizarra.fase})` })
+    .forEach(([k, v]) => flecha.setAttribute(k, v));
+  if (pizarra.fase === 'defensa') flecha.setAttribute('stroke-dasharray', '3 2');
+  else flecha.removeAttribute('stroke-dasharray');
+}
+
+function pintarPizarra() {
+  const caja = $('#pizarra');
+  if (!caja) return;
+  const sistema = sistemaActual();
+  // El campo se reaprovecha mientras no se cambie de sistema: así las fichas se deslizan.
+  let campo = caja.querySelector('.campo');
+  if (!campo || campo.dataset.sistema !== sistema.id) {
+    campo = construirCampoPizarra();
+    campo.dataset.sistema = sistema.id;
+  }
+  const elegida = sistema.posiciones.find((x) => x.id === pizarra.posicion);
+
+  const botonSistema = (s) => h('button', {
+    type: 'button', class: `chip-sistema${s.id === pizarra.sistema ? ' puesto' : ''}`,
+    onclick: () => { pizarra.sistema = s.id; pizarra.posicion = null; pararBucle(); pintarPizarra(); },
+  }, h('strong', { text: s.nombre }), h('small', { text: s.apodo }));
+
+  const botonFase = (clave) => h('button', {
+    type: 'button', class: `chip-fase ${clave}${pizarra.fase === clave ? ' puesto' : ''}`,
+    onclick: () => { pararBucle(); pizarra.fase = clave; pintarPizarra(); },
+  }, FASES[clave].etiqueta);
+
+  pintar(caja,
+    h('div', { class: 'sistemas' }, SISTEMAS.map(botonSistema)),
+    h('p', { class: 'apagado resumen-sistema', text: sistema.resumen }),
+    campo,
+    h('div', { class: 'fases' },
+      ['base', 'defensa', 'ataque'].map(botonFase),
+      h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarBucle },
+        pizarra.bucle ? '⏸ Parar' : '▶ Ver jugada')),
+    h('div', { class: 'posiciones-pizarra' }, sistema.posiciones.map((pos) =>
+      h('button', {
+        type: 'button', class: `chip-posicion${pos.id === pizarra.posicion ? ' puesto' : ''}`,
+        onclick: () => { pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id; pintarPizarra(); },
+      }, pos.corto))),
+    h('div', { class: 'explica-pizarra' },
+      elegida
+        ? [h('h3', {}, elegida.nombre),
+           h('p', { class: 'en-defensa' }, h('strong', { text: 'Defendiendo: ' }), elegida.txtDefensa),
+           h('p', { class: 'en-ataque' }, h('strong', { text: 'Atacando: ' }), elegida.txtAtaque)]
+        : h('p', { class: 'apagado', text: 'Toca una posición del campo o de la lista para ver qué hace al defender y al atacar.' })));
+
+  // Se fuerza al navegador a situar el campo antes de mover: así hay transición y no un salto.
+  // (Con requestAnimationFrame no bastaba: en una pestaña en segundo plano no se dispara.)
+  campo.getBoundingClientRect();
+  moverFichas(campo);
+}
+
+/** El bucle: posición → defensa → ataque → posición, para verlo como una jugada. */
+function alternarBucle() {
+  if (pizarra.bucle) return pararBucle(), pintarPizarra();
+  const orden = ['base', 'defensa', 'ataque'];
+  let i = orden.indexOf(pizarra.fase);
+  pizarra.bucle = setInterval(() => {
+    i = (i + 1) % orden.length;
+    pizarra.fase = orden[i];
+    pintarPizarra();
+  }, 2200);
+  pintarPizarra();
+}
+
+function pararBucle() {
+  if (pizarra.bucle) clearInterval(pizarra.bucle);
+  pizarra.bucle = null;
 }
 
 /* ───────────────────────── Arranque ───────────────────────── */

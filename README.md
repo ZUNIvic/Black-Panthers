@@ -2,14 +2,15 @@
 
 Web estática (HTML + CSS + JavaScript, sin instalaciones ni compilación) para el equipo de veteranos F7.
 
-- **Equipo**: frase motivadora, escudo, anuncios, estadísticas, aspectos a mejorar y puntos fuertes
-  (del equipo y jugador a jugador, con los comentarios de cada jornada), plantilla con la ficha de cada
-  jugador, lesionados y normativa interna.
-- **Competición**: MVP de la última jornada, próximo entreno y partido, instrucciones del cuerpo técnico,
-  prelista (la hacen los jugadores) y lista definitiva del cuerpo técnico, votación al MVP (secreta: votan los jugadores, el recuento solo lo ve el cuerpo técnico y el podio lo publica él), calendario, clasificación y resultados.
+- **Competición**: escudo, frase, podio del MVP, anuncios y grabaciones, próximo partido, clasificación
+  y **todas las jornadas del grupo** con los partidos de los demás equipos, como en CopaFácil.
+- **Convocatorias**: cuántos van al próximo partido, el Voy / No voy de cada jugador, la convocatoria del
+  cuerpo técnico, sus instrucciones y la lista del entreno.
+- **Estrategia y equipo**: pizarra con los sistemas de fútbol 7 y los movimientos de cada posición,
+  comentarios jornada a jornada y, plegados, aspectos a mejorar, plantilla, estadísticas, lesionados y
+  normativa interna.
 - **Tesorería**: cuotas y multas pendientes de cada jugador («Al día» si no debe nada).
-- **Roles del equipo**: cuerpo técnico, capitanes, junta directiva y miembros fundadores.
-- **Tercer tiempo**: quedadas, cumpleaños y fotos (se suben desde el móvil y se guardan en Drive).
+- **Tercer tiempo**: quedadas, cumpleaños, fotos y los roles del equipo.
 
 ## De dónde salen los datos
 
