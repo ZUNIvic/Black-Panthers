@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=49';
-import { cargarCopaFacil } from './copafacil.js?v=49';
-import { leerHoja, enviarHoja } from './hoja.js?v=49';
+import { CONFIG } from './config.js?v=50';
+import { cargarCopaFacil } from './copafacil.js?v=50';
+import { leerHoja, enviarHoja } from './hoja.js?v=50';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3368,31 +3368,50 @@ function fotograma() {
    se redondean las esquinas, que si no se nota mucho el pulso. */
 
 const idZona = (posicion) => `z-${pizarra.sistema}-${posicion}`;
-const MAX_PUNTOS = 48;    // por fase, lo que cabe en la celda de la hoja
-const TOPE_VIVO = 400;    // lo que se guarda mientras el dedo va; luego se reparte
-const PASO_MIN = 2;       // separación mínima entre puntos, en unidades del campo
+const GROSOR = 13;        // ancho del pincel, en unidades del campo
+const MAX_PUNTOS = 24;    // por brochazo; cada uno va en su propia fila
+const MAX_TRAZOS = 14;    // brochazos por posición, entre las dos fases
+const TOPE_VIVO = 400;    // lo que se guarda mientras el dedo va
+const PASO_MIN = 2.5;     // separación mínima entre puntos
 
+/**
+ * Los brochazos de una posición. Cada uno es una fila de la hoja: en «Texto»
+ * pone la fase y en «Posiciones» los puntos. Se lee también el formato viejo,
+ * el de una sola fila con «ataque:...;defensa:...».
+ */
 function zonasDe(posicion) {
   const fila = (estado.hoja?.jugadas || []).find((j) => j.id === idZona(posicion));
   const res = { ataque: [], defensa: [] };
-  String(fila?.pasos?.[0]?.posiciones || '').split(';').forEach((trozo) => {
-    const i = trozo.indexOf(':');
-    const clave = trozo.slice(0, i);
-    if (clave !== 'ataque' && clave !== 'defensa') return;
-    res[clave] = trozo.slice(i + 1).split('/').map((trazo) => trazo.trim().split(' ')
-      .map((par) => par.split(',').map(Number))
-      .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))).filter((t) => t.length >= 3);
+  (fila?.pasos || []).forEach((paso) => {
+    const fase = normalizaTexto(paso.texto || '');
+    if (fase === 'ataque' || fase === 'defensa') {
+      const puntos = comoPuntos(paso.posiciones);
+      if (puntos.length) res[fase].push(puntos);
+      return;
+    }
+    // Formato viejo: una fila con las dos fases juntas.
+    String(paso.posiciones || '').split(';').forEach((trozo) => {
+      const i = trozo.indexOf(':');
+      const clave = trozo.slice(0, i);
+      if (clave !== 'ataque' && clave !== 'defensa') return;
+      trozo.slice(i + 1).split('/').forEach((t) => {
+        const puntos = comoPuntos(t);
+        if (puntos.length) res[clave].push(puntos);
+      });
+    });
   });
   return res;
 }
 
-const comoTrazos = (trazos) => trazos.map((t) => t.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ')).join('/');
-const comoZonas = (z) => `ataque:${comoTrazos(z.ataque)};defensa:${comoTrazos(z.defensa)}`;
+const comoPuntos = (texto) => String(texto || '').trim().split(' ')
+  .map((par) => par.split(',').map(Number))
+  .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+
+const comoTexto = (puntos) => puntos.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ');
 
 /**
- * Deja el trazo en como mucho `tope` puntos, repartidos por igual a lo largo del
- * recorrido. Así un trazo largo no se corta a la mitad: se guarda entero, con
- * menos detalle.
+ * Deja el brochazo en como mucho `tope` puntos, repartidos por igual a lo largo
+ * del recorrido: se guarda entero, solo que con menos detalle.
  */
 function repartir(puntos, tope) {
   if (puntos.length <= tope) return puntos;
@@ -3405,36 +3424,41 @@ function repartir(puntos, tope) {
   const res = [];
   let j = 0;
   for (let k = 0; k < tope; k++) {
-    const d = (total * k) / tope;
+    const d = (total * (k + 1)) / tope;
     while (j < hasta.length - 1 && hasta[j + 1] < d) j++;
     res.push(puntos[j]);
   }
   return res;
 }
 
-/** Redondea las esquinas de un trazo cerrado (Chaikin). */
+/** Suaviza el recorrido del pincel para que no se note el pulso. */
 function suavizar(puntos, vueltas = 2) {
   let p = puntos;
   for (let v = 0; v < vueltas && p.length > 2; v++) {
-    const q = [];
-    for (let i = 0; i < p.length; i++) {
+    const q = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
       const a = p[i];
-      const b = p[(i + 1) % p.length];
+      const b = p[i + 1];
       q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
       q.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
     }
+    q.push(p[p.length - 1]);
     p = q;
   }
   return p;
 }
 
+/** El recorrido del pincel, abierto: nunca se cierra, así que no sale ninguna diagonal. */
 const comoCamino = (puntos) => suavizar(puntos)
-  .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
+  .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
 
 async function guardarZonas(posicion, z) {
   const vacia = !z.ataque.length && !z.defensa.length;
   const nombre = `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`;
-  const pasos = vacia ? [] : [{ texto: posicion, posiciones: comoZonas(z) }];
+  const pasos = [
+    ...z.ataque.map((t) => ({ texto: 'ataque', posiciones: comoTexto(t) })),
+    ...z.defensa.map((t) => ({ texto: 'defensa', posiciones: comoTexto(t) })),
+  ];
   // Se pinta ya, sin esperar a la hoja.
   if (estado.hoja) {
     const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== idZona(posicion));
@@ -3581,14 +3605,15 @@ function prepararArrastre(campo) {
       const puntos = trazo;
       trazo = null;
       pintarTrazoEnCurso(campo, null);
-      if (puntos.length >= 3) {
+      if (puntos.length >= 2) {
         const z = zonasDe(pizarra.posicion);
-        const fase = z[pizarra.modoZona];
-        const recortado = repartir(puntos, MAX_PUNTOS);
-        // Caben dos o tres trazos por fase; si no, no entra en la hoja.
-        while (fase.length && fase.reduce((n, t) => n + t.length, recortado.length) > MAX_PUNTOS) fase.shift();
-        fase.push(recortado);
-        guardarZonas(pizarra.posicion, z);
+        // Los brochazos se suman: pintar más nunca borra lo de antes.
+        z[pizarra.modoZona].push(repartir(puntos, MAX_PUNTOS));
+        if (z.ataque.length + z.defensa.length > MAX_TRAZOS) {
+          aviso('Ya no caben más brochazos en esta posición', true);
+        } else {
+          guardarZonas(pizarra.posicion, z);
+        }
       }
       return;
     }
@@ -3621,14 +3646,15 @@ function pintarTrazoEnCurso(campo, puntos) {
   let g = campo.querySelector('.trazo-vivo');
   if (!puntos) return g && g.remove();
   if (!g) {
-    g = svg('path', { class: 'trazo-vivo', 'stroke-linejoin': 'round' });
+    g = svg('path', { class: 'trazo-vivo', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
     campo.querySelector('.capa-zonas').appendChild(g);
   }
-  const color = pizarra.modoZona === 'ataque' ? 'rgba(239,48,36,0.55)' : 'rgba(16,220,110,0.45)';
   g.setAttribute('d', comoCamino(puntos));
-  g.setAttribute('fill', color);
-  g.setAttribute('stroke', pizarra.modoZona === 'ataque' ? '#ff8a80' : '#8dffc4');
-  g.setAttribute('stroke-width', '0.6');
+  g.setAttribute('fill', 'none');
+  g.setAttribute('stroke', pizarra.modoZona === 'ataque' ? '#ef3024' : '#10dc6e');
+  g.setAttribute('stroke-width', GROSOR);
+  g.setAttribute('stroke-linecap', 'round');
+  g.setAttribute('opacity', '0.55');
 }
 
 function leerCampo() {
@@ -3671,11 +3697,17 @@ function moverPizarra(campo) {
   while (capa.firstChild) capa.removeChild(capa.firstChild);
   if (enZonas && pizarra.posicion) {
     const z = zonasDe(pizarra.posicion);
-    [['defensa', 'rgba(16,220,110,0.55)', '#8dffc4'], ['ataque', 'rgba(239,48,36,0.6)', '#ff8a80']]
-      .forEach(([fase, relleno, borde]) => z[fase].forEach((trazo) => capa.appendChild(svg('path', {
-        class: `zona ${fase}`, d: comoCamino(trazo), fill: relleno, stroke: borde,
-        'stroke-width': 0.6, 'stroke-linejoin': 'round',
-      }))));
+    // Cada fase va en su propio grupo con opacidad: así los brochazos que se
+    // pisan no quedan más oscuros, se ven como una sola mancha.
+    [['defensa', '#10dc6e'], ['ataque', '#ef3024']].forEach(([fase, color]) => {
+      if (!z[fase].length) return;
+      const grupo = svg('g', { class: `zona ${fase}`, opacity: 0.55 });
+      z[fase].forEach((trazo) => grupo.appendChild(svg('path', {
+        d: comoCamino(trazo), fill: 'none', stroke: color, 'stroke-width': GROSOR,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      })));
+      capa.appendChild(grupo);
+    });
   }
 
   // Las flechas de los movimientos ya hechos
@@ -3824,8 +3856,8 @@ function explicaPizarra(jugada, enZonas, puedeGrabar) {
       h('p', { class: 'paso-ataque' }, h('strong', { text: 'Con balón: ' }), pos.txtAtaque),
       h('p', { class: 'paso-defensa' }, h('strong', { text: 'Sin balón: ' }), pos.txtDefensa),
       h('p', { class: 'apagado', text: puedeGrabar
-        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y dibuja la zona con el dedo.`
-        : `${z.ataque.length} ${z.ataque.length === 1 ? 'zona' : 'zonas'} de ataque (rojo) y ${z.defensa.length} de defensa (verde).` }));
+        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y pasa el dedo por encima, como con un rotulador.`
+        : 'Rojo, lo que cubre atacando. Verde, lo que cubre defendiendo.' }));
   }
 
   if (jugada) {

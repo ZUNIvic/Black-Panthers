@@ -172,9 +172,10 @@ Con el PIN del míster o el tuyo puedes:
   banda, un córner, un saque de puerta) y pulsa **«Marcar como inicio»**. A partir de ahí la pizarra
   siempre sale así, y las jugadas que grabes parten de esa colocación. Hay una por sistema y por
   pestaña, y se deshace con «Quitar el inicio guardado».
-- **Pintar zonas.** En «Zonas» eliges una posición y **dibujas con el dedo** la zona que tiene que
-  cubrir: rojo atacando, verde defendiendo. Se le redondean las esquinas solo, para que no se note
-  el pulso. Caben dos o tres trazos por fase y se guarda al momento.
+- **Pintar zonas.** En «Zonas» eliges una posición y **pasas el dedo por encima, como con un
+  rotulador**: rojo lo que cubre atacando, verde lo que cubre defendiendo. Cada pasada se suma a las
+  anteriores, así que la zona se va rellenando a brochazos. «Deshacer el último» quita la última
+  pasada y «Borrar todo» las quita todas. Cada brochazo es una fila de la pestaña JUGADAS.
 
 Todo esto vive en la pestaña **JUGADAS**: una fila por movimiento, y una fila por posición para las
 zonas. No hace falta tocarla a mano. Las jugadas de ejemplo que vienen de serie no se borran: están
