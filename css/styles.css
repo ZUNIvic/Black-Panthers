@@ -92,7 +92,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .barra-inferior a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  color: var(--texto-3); text-decoration: none; font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+  color: var(--texto-3); text-decoration: none; font-weight: 600;
+  /* El mismo nombre que arriba, aunque tenga que partirse en dos líneas */
+  font-size: 0.6rem; line-height: 1.1; text-align: center; padding: 0 3px; hyphens: auto;
 }
 .barra-inferior a[aria-current="page"] { color: var(--naranja); }
 .barra-inferior svg { width: 22px; height: 22px; }

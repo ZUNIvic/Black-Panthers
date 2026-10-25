@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=38';
-import { cargarCopaFacil } from './copafacil.js?v=38';
-import { leerHoja, enviarHoja } from './hoja.js?v=38';
+import { CONFIG } from './config.js?v=39';
+import { cargarCopaFacil } from './copafacil.js?v=39';
+import { leerHoja, enviarHoja } from './hoja.js?v=39';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
