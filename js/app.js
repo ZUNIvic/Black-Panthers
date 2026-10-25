@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=40';
-import { cargarCopaFacil } from './copafacil.js?v=40';
-import { leerHoja, enviarHoja } from './hoja.js?v=40';
+import { CONFIG } from './config.js?v=43';
+import { cargarCopaFacil } from './copafacil.js?v=43';
+import { leerHoja, enviarHoja } from './hoja.js?v=43';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -151,6 +151,7 @@ const esStaff = () => estado.staff && hayHoja();
 const PERMISOS = {
   convocar: ['staff'], comentar: ['staff'], tesoreria: ['tesoreria'],
   mvp: ['staff'], // el MVP elegido a mano
+  jugada: ['staff'], // las jugadas y las zonas de la pizarra
   notas: ['staff'], // las notas del MVP en la plantilla
   entradas: ['staff'], // quién entra en la web
   votos: ['staff'],    // el recuento de la votación, secreto para los jugadores
@@ -2051,6 +2052,7 @@ function pintarTodo() {
   aSalvo('pintarApuntadosEntreno', () => pintarApuntadosEntreno());
   aSalvo('pintarConvocatoriaProxima', () => pintarConvocatoriaProxima());
   aSalvo('pintarResumenConvocatoria', () => pintarResumenConvocatoria());
+  aSalvo('pintarPizarra', () => pintarPizarra());
   aSalvo('pintarVoyRapido', () => pintarVoyRapido());
   aSalvo('pintarEstadisticas', () => pintarEstadisticas());
   aSalvo('pintarPlantilla', () => pintarPlantilla());
@@ -3038,6 +3040,755 @@ function mostrarVista(desdeClic) {
     else a.removeAttribute('aria-current');
   });
   if (desdeClic) window.scrollTo({ top: 0 });
+}
+
+/* ───────────────────────── Pizarra de estrategia ─────────────────────────
+   Campo de 100 x 150; nosotros atacamos hacia arriba.
+   Tres pestañas: jugadas ofensivas, jugadas defensivas y zonas a cubrir.
+   El cuerpo técnico graba las jugadas moviendo las fichas con el dedo: cada
+   arrastre queda apuntado como un movimiento, y se reproducen en ese orden. */
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ALTO_CAMPO = 150;
+const PASO_MS = 1800;   // lo que dura cada movimiento al reproducir
+const COLS_ZONA = 4;
+const FILAS_ZONA = 6;
+const MAX_MOVS = 40;
+
+const svg = (etiqueta, attrs = {}, ...hijos) => {
+  const el = document.createElementNS(SVG_NS, etiqueta);
+  Object.entries(attrs).forEach(([k, v]) => { if (v !== null && v !== undefined) el.setAttribute(k, v); });
+  hijos.flat(Infinity).forEach((x) => el.appendChild(typeof x === 'string' ? document.createTextNode(x) : x));
+  return el;
+};
+
+// Rivales: su portería está arriba. Es un 1-2-3-1 mirando hacia nosotros.
+const RIVALES = { r1: [50, 12], r2: [34, 36], r3: [66, 36], r4: [20, 70], r5: [50, 62], r6: [80, 70], r7: [50, 96] };
+
+const SISTEMAS = [
+  {
+    id: '1-3-2-1',
+    nombre: '1-3-2-1',
+    apodo: 'Tres atrás',
+    resumen: 'Tres defensas, dos medios y un punta. El más seguro atrás: la línea de tres cubre todo el ancho y los medios ayudan en las dos fases.',
+    posiciones: [
+      { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
+        txtDefensa: 'Achica y manda: avisa de quién entra por detrás de la línea de tres.',
+        txtAtaque: 'Sale del área para dar salida. Con tres atrás siempre hay dos a quien pasar.' },
+      { id: 'li', nombre: 'Lateral izquierdo', corto: 'LI', base: [22, 110],
+        txtDefensa: 'Si el balón viene por su banda, sale él al que lo lleva; nadie más.',
+        txtAtaque: 'Sube por fuera a dar amplitud. El otro lateral se queda: nunca suben los dos.' },
+      { id: 'dfc', nombre: 'Central', corto: 'DFC', base: [50, 115],
+        txtDefensa: 'Es el jefe de la línea. No se va al balón: tapa el centro y cubre al lateral que sale.',
+        txtAtaque: 'Se queda de seguro. Es el que da la vuelta al juego si la banda está cerrada.' },
+      { id: 'ld', nombre: 'Lateral derecho', corto: 'LD', base: [78, 110],
+        txtDefensa: 'Con el balón al otro lado bascula al centro y cubre al central.',
+        txtAtaque: 'Acompaña por dentro: es el equilibrio si perdemos el balón.' },
+      { id: 'mi', nombre: 'Medio izquierdo', corto: 'MI', base: [33, 80],
+        txtDefensa: 'Baja a ayudar a su lateral: dos contra uno en la banda del balón.',
+        txtAtaque: 'Aparece entre líneas para recibir de espaldas y girar.' },
+      { id: 'md', nombre: 'Medio derecho', corto: 'MD', base: [67, 80],
+        txtDefensa: 'Cierra el centro mientras su compañero sale. Nunca se van los dos a la vez.',
+        txtAtaque: 'Llega desde atrás al área: el segundo que entra es el que marca.' },
+      { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 48],
+        txtDefensa: 'No corre detrás de todos: se pone en el camino del pase y obliga a jugar por fuera.',
+        txtAtaque: 'Ataca el primer palo y arrastra al central para abrir hueco a los medios.' },
+    ],
+    jugadas: [
+      {
+        id: 'salida-corta', nombre: 'Salida corta', tipo: 'ataque',
+        pasos: [
+          { texto: 'Saca el portero. Los laterales se abren a la cal y el central se separa: cuanto más lejos estemos unos de otros, más les cuesta taparnos.',
+            balon: [50, 132], mover: { li: [14, 116], ld: [86, 116], dfc: [50, 120] } },
+          { texto: 'El pase va al lateral que queda lejos del punta rival. Nunca al que tiene encima.',
+            balon: [16, 114], mover: {}, rivales: { r7: [42, 104] } },
+          { texto: 'El medio de esa banda baja a recibir y el otro se mete por dentro: siempre dos opciones de pase.',
+            balon: [26, 94], mover: { mi: [26, 92], md: [58, 64] }, rivales: { r4: [24, 80] } },
+          { texto: 'Cambio de orientación al lateral contrario, que lleva veinte metros subiendo solo. Ahí está el partido.',
+            balon: [84, 88], mover: { ld: [84, 84], dc: [52, 38] }, rivales: { r6: [74, 78] } },
+        ],
+      },
+      {
+        id: 'salida-larga', nombre: 'Salida larga', tipo: 'ataque',
+        pasos: [
+          { texto: 'Si vienen a presionarnos arriba, no hay que empeñarse en salir jugando. Se avisa y se juega largo.',
+            balon: [50, 132], mover: {}, rivales: { r7: [46, 110], r4: [26, 88], r6: [74, 88] } },
+          { texto: 'El punta se descuelga a recibir de espaldas y los dos medios salen con él a por el rechace.',
+            balon: [50, 64], mover: { dc: [50, 62], mi: [38, 72], md: [62, 72] } },
+          { texto: 'Descarga al medio que llega lanzado y atacamos el espacio que han dejado al subir.',
+            balon: [62, 60], mover: { md: [64, 42], dc: [50, 30], mi: [44, 58] } },
+        ],
+      },
+      {
+        id: 'presion-alta', nombre: 'Presión alta', tipo: 'defensa',
+        pasos: [
+          { texto: 'El punta va al que saca, pero corriendo por dentro: le obliga a jugar a una banda, no al centro.',
+            balon: [50, 18], mover: { dc: [50, 32] } },
+          { texto: 'En cuanto el balón va a ese lado, salta el medio de esa banda. El resto se desplaza con él.',
+            balon: [34, 40], mover: { mi: [34, 56], md: [58, 66] } },
+          { texto: 'Los de atrás achican hasta el centro del campo. Robar aquí es media ocasión.',
+            balon: [34, 46], mover: { li: [26, 84], dfc: [50, 88], ld: [74, 84] }, rivales: { r2: [34, 44] } },
+        ],
+      },
+      {
+        id: 'repliegue', nombre: 'Repliegue', tipo: 'defensa',
+        pasos: [
+          { texto: 'Perdemos el balón. El primero que tiene que bajar es el punta, no el defensa.',
+            balon: [50, 60], mover: { dc: [50, 84] }, rivales: { r5: [50, 64] } },
+          { texto: 'Bloque corto por delante del portero: todos por detrás del balón y nadie mirando.',
+            balon: [50, 72], mover: { li: [24, 114], dfc: [50, 118], ld: [76, 114], mi: [36, 98], md: [64, 98] } },
+          { texto: 'Si el balón se va a una banda, el bloque entero se desplaza a ese lado. El lateral de lejos entra al centro.',
+            balon: [22, 80], mover: { li: [18, 108], dfc: [42, 116], ld: [64, 112], mi: [28, 92], md: [52, 96] },
+            rivales: { r4: [20, 84] } },
+        ],
+      },
+    ],
+  },
+  {
+    id: '1-2-3-1',
+    nombre: '1-2-3-1',
+    apodo: 'Tres medios',
+    resumen: 'Dos centrales, tres medios y un punta. Más gente en el medio y bandas largas, pero los centrales se quedan solos si los medios no bajan.',
+    posiciones: [
+      { id: 'por', nombre: 'Portero', corto: 'POR', base: [50, 138],
+        txtDefensa: 'Con solo dos centrales tiene que salir a los balones a la espalda.',
+        txtAtaque: 'Abre a un central y el equipo sale jugando desde atrás.' },
+      { id: 'dfi', nombre: 'Central izquierdo', corto: 'DFI', base: [35, 115],
+        txtDefensa: 'Sale al balón cuando viene por su lado; el compañero le cubre por dentro.',
+        txtAtaque: 'Conduce unos metros para obligar a salir a un rival y liberar al medio.' },
+      { id: 'dfd', nombre: 'Central derecho', corto: 'DFD', base: [65, 115],
+        txtDefensa: 'Bascula al centro a cubrir. Si salen los dos a la vez, queda el campo abierto.',
+        txtAtaque: 'Se queda de seguro y da la vuelta al juego.' },
+      { id: 'mi', nombre: 'Banda izquierda', corto: 'MI', base: [20, 78],
+        txtDefensa: 'Baja hasta la línea de los centrales: se defiende con cuatro, no con dos.',
+        txtAtaque: 'Pegado a la cal, para estirarlos y buscar el uno contra uno.' },
+      { id: 'mc', nombre: 'Medio centro', corto: 'MC', base: [50, 85],
+        txtDefensa: 'Tapa el pase al punta rival. Es la posición que más corre del sistema.',
+        txtAtaque: 'El que reparte: recibe de los centrales y cambia de banda.' },
+      { id: 'md', nombre: 'Banda derecha', corto: 'MD', base: [80, 78],
+        txtDefensa: 'Con el balón al otro lado cierra por dentro, no se queda en su banda.',
+        txtAtaque: 'Abre el campo y llega al segundo palo en los centros del otro lado.' },
+      { id: 'dc', nombre: 'Delantero', corto: 'DC', base: [50, 45],
+        txtDefensa: 'Presiona al que saca orientando el pase hacia una banda.',
+        txtAtaque: 'Fija a los centrales para que los tres medios lleguen desde atrás.' },
+    ],
+    jugadas: [
+      {
+        id: 'salida-centrales', nombre: 'Salida por dentro', tipo: 'ataque',
+        pasos: [
+          { texto: 'Los dos centrales se abren al borde del área y el medio centro baja al hueco entre ellos.',
+            balon: [50, 132], mover: { dfi: [26, 118], dfd: [74, 118], mc: [50, 104] } },
+          { texto: 'Pase a un central, que conduce hacia dentro para que el rival salga a buscarle.',
+            balon: [28, 114], mover: { dfi: [30, 110] }, rivales: { r7: [38, 100] } },
+          { texto: 'Al salir, deja libre al medio centro. Ese es el pase que rompe la presión.',
+            balon: [48, 100], mover: { mc: [48, 96], mi: [16, 66], md: [84, 66] } },
+          { texto: 'Con el medio girado, las dos bandas ya están en carrera y el punta ataca el área.',
+            balon: [80, 62], mover: { md: [84, 54], dc: [52, 28] }, rivales: { r4: [22, 60], r6: [78, 58] } },
+        ],
+      },
+      {
+        id: 'banda-centro', nombre: 'Banda y centro', tipo: 'ataque',
+        pasos: [
+          { texto: 'El balón llega a la banda con espacio por delante. Nadie le quita el uno contra uno.',
+            balon: [18, 60], mover: { mi: [16, 58], mc: [46, 76] } },
+          { texto: 'El punta ataca el primer palo y se lleva al central: deja un hueco enorme detrás.',
+            balon: [18, 48], mover: { mi: [16, 46], dc: [38, 26] }, rivales: { r2: [34, 26] } },
+          { texto: 'El centro va a ese hueco y la banda contraria llega al segundo palo. Ahí es donde se marca.',
+            balon: [68, 28], mover: { md: [72, 30], mc: [50, 50] } },
+        ],
+      },
+      {
+        id: 'bloque-medio', nombre: 'Bloque medio', tipo: 'defensa',
+        pasos: [
+          { texto: 'No presionamos arriba: esperamos en el centro del campo con los tres medios en línea.',
+            balon: [50, 30], mover: { dc: [50, 56], mi: [24, 72], mc: [50, 74], md: [76, 72] } },
+          { texto: 'Cuando el balón entra en una banda, saltamos. El resto bascula a ese lado a la vez.',
+            balon: [22, 62], mover: { mi: [22, 66], mc: [40, 80], md: [62, 76], dfi: [30, 106] },
+            rivales: { r4: [22, 58] } },
+          { texto: 'El central del lado contrario se mete al centro. Cerramos el pasillo, no la banda lejana.',
+            balon: [22, 72], mover: { dfd: [52, 110], dc: [40, 70] } },
+        ],
+      },
+      {
+        id: 'repliegue-4', nombre: 'Repliegue a cuatro', tipo: 'defensa',
+        pasos: [
+          { texto: 'Nos la han robado. Las dos bandas bajan a la altura de los centrales: línea de cuatro.',
+            balon: [50, 56], mover: { mi: [22, 112], md: [78, 112], dfi: [38, 116], dfd: [62, 116] },
+            rivales: { r5: [50, 60] } },
+          { texto: 'El medio centro tapa al punta rival por delante de la línea, sin meterse en ella.',
+            balon: [50, 70], mover: { mc: [50, 100], dc: [50, 80] } },
+          { texto: 'Balón a una banda: la línea de cuatro se desplaza junta. Nadie se queda a contrapié.',
+            balon: [76, 84], mover: { mi: [34, 110], dfi: [50, 114], dfd: [70, 112], md: [84, 104], mc: [62, 92] },
+            rivales: { r6: [80, 80] } },
+        ],
+      },
+    ],
+  },
+];
+
+const PESTANAS_PIZARRA = [
+  { id: 'ataque', texto: 'Jugadas ofensivas', corto: 'Ofensivas' },
+  { id: 'defensa', texto: 'Jugadas defensivas', corto: 'Defensivas' },
+  { id: 'zonas', texto: 'Zonas a cubrir', corto: 'Zonas' },
+];
+
+let pizarra = { sistema: SISTEMAS[0].id, pestana: 'ataque', jugada: null, paso: 0, posicion: null, bucle: null, modoZona: 'ataque' };
+let grabando = null;  // { id, nombre, tipo, inicio: {pieza:[x,y]}, movs: [{pieza, de, a}] }
+
+const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
+const posicionesDe = () => sistemaActual().posiciones;
+
+/* ── Cómo se guarda en la hoja ──
+   Paso 1: la colocación de salida, "@por:50,138|li:22,110|balon:50,132".
+   Pasos siguientes: un movimiento cada uno, "li:22,110>14,116".
+   Zonas: una fila por posición, "ataque:3,7,11;defensa:12,16". */
+
+const unPunto = ([x, y]) => `${Math.round(x)},${Math.round(y)}`;
+const comoSitios = (sitios) => '@' + Object.entries(sitios).map(([k, v]) => `${k}:${unPunto(v)}`).join('|');
+const comoMovimiento = (m) => `${m.pieza}:${unPunto(m.de)}>${unPunto(m.a)}`;
+
+function leerPaso(texto) {
+  const t = String(texto || '').trim();
+  if (t.startsWith('@')) {
+    const sitios = {};
+    t.slice(1).split('|').forEach((trozo) => {
+      const [id, par] = trozo.split(':');
+      const [x, y] = String(par || '').split(',').map(Number);
+      if (id && Number.isFinite(x) && Number.isFinite(y)) sitios[id] = [x, y];
+    });
+    return { inicio: sitios };
+  }
+  const m = /^([\w-]+):([-\d.]+),([-\d.]+)>([-\d.]+),([-\d.]+)$/.exec(t);
+  if (!m) return null;
+  return { pieza: m[1], de: [Number(m[2]), Number(m[3])], a: [Number(m[4]), Number(m[5])] };
+}
+
+/** Dónde empieza todo el mundo en el sistema elegido. */
+function colocacionBase() {
+  const sitios = { balon: [50, 131] };  // a los pies del portero, no encima
+  posicionesDe().forEach((p) => { sitios[p.id] = [...p.base]; });
+  Object.entries(RIVALES).forEach(([id, xy]) => { sitios[id] = [...xy]; });
+  return sitios;
+}
+
+/** Las jugadas grabadas por el cuerpo técnico, listas para reproducir. */
+function jugadasGrabadas(tipo) {
+  return (estado.hoja?.jugadas || [])
+    .filter((j) => j.tipo === tipo && (!j.sistema || j.sistema === pizarra.sistema))
+    .map((j) => {
+      const pasos = (j.pasos || []).map((x) => leerPaso(x.posiciones)).filter(Boolean);
+      return {
+        id: j.id, nombre: j.nombre, tipo: j.tipo, grabada: true,
+        inicio: pasos.find((x) => x.inicio)?.inicio || null,
+        movs: pasos.filter((x) => x.pieza),
+      };
+    })
+    .filter((j) => j.movs.length);
+}
+
+/** Los ejemplos que vienen de serie, traducidos al mismo formato de movimientos. */
+function ejemplosComoMovs(tipo) {
+  return sistemaActual().jugadas.filter((j) => j.tipo === tipo).map((j) => {
+    const sitios = colocacionBase();
+    const movs = [];
+    j.pasos.forEach((paso) => {
+      const cambios = { ...(paso.mover || {}), ...(paso.rivales || {}) };
+      if (paso.balon) cambios.balon = paso.balon;
+      Object.entries(cambios).forEach(([pieza, a]) => {
+        const de = sitios[pieza] || a;
+        if (de[0] !== a[0] || de[1] !== a[1]) movs.push({ pieza, de, a, texto: paso.texto });
+        sitios[pieza] = a;
+      });
+    });
+    return { id: j.id, nombre: j.nombre, tipo: j.tipo, inicio: colocacionBase(), movs, ejemplo: true };
+  }).filter((j) => j.movs.length);
+}
+
+const jugadasDe = (tipo) => [...jugadasGrabadas(tipo), ...ejemplosComoMovs(tipo)];
+const jugadaActual = () => jugadasDe(pizarra.pestana).find((x) => x.id === pizarra.jugada) || null;
+
+/** La foto del campo en el movimiento en el que estamos. */
+function fotograma() {
+  if (grabando) return null;  // grabando manda lo que hay en el campo, que lo mueve el dedo
+  const jugada = jugadaActual();
+  if (!jugada) return { sitios: colocacionBase(), texto: '', conBalon: false };
+  const sitios = { ...colocacionBase(), ...(jugada.inicio || {}) };
+  let texto = '';
+  for (let i = 0; i < pizarra.paso && i < jugada.movs.length; i++) {
+    const m = jugada.movs[i];
+    sitios[m.pieza] = m.a;
+    if (m.texto) texto = m.texto;
+  }
+  const hecho = jugada.movs[Math.max(0, pizarra.paso - 1)];
+  return { sitios, texto: texto || hecho?.texto || '', conBalon: true, resaltar: pizarra.paso ? hecho?.pieza : null };
+}
+
+/* ───────── Zonas a cubrir ───────── */
+
+const idZona = (posicion) => `z-${pizarra.sistema}-${posicion}`;
+
+function celdasZona(posicion) {
+  const fila = (estado.hoja?.jugadas || []).find((j) => j.id === idZona(posicion));
+  const res = { ataque: [], defensa: [] };
+  String(fila?.pasos?.[0]?.posiciones || '').split(';').forEach((trozo) => {
+    const [clave, listaTexto] = trozo.split(':');
+    if (clave === 'ataque' || clave === 'defensa') {
+      // Ojo: una lista vacía ("defensa:") no puede acabar siendo la celda 0.
+      res[clave] = String(listaTexto || '').split(',').filter((x) => x.trim() !== '').map(Number)
+        .filter((n) => Number.isInteger(n) && n >= 0 && n < COLS_ZONA * FILAS_ZONA);
+    }
+  });
+  return res;
+}
+
+const comoZonas = (z) => `ataque:${z.ataque.join(',')};defensa:${z.defensa.join(',')}`;
+
+function cajaCelda(n) {
+  const col = n % COLS_ZONA;
+  const fil = Math.floor(n / COLS_ZONA);
+  return { x: (col * 100) / COLS_ZONA, y: (fil * ALTO_CAMPO) / FILAS_ZONA, w: 100 / COLS_ZONA, h: ALTO_CAMPO / FILAS_ZONA };
+}
+
+function tocarCelda(n) {
+  const pos = pizarra.posicion;
+  if (pizarra.pestana !== 'zonas' || !pos || !permitido('jugada')) return;
+  const z = celdasZona(pos);
+  const lista = z[pizarra.modoZona];
+  const i = lista.indexOf(n);
+  if (i >= 0) lista.splice(i, 1); else lista.push(n);
+  // Una celda es de ataque o de defensa, no de las dos.
+  const otra = pizarra.modoZona === 'ataque' ? 'defensa' : 'ataque';
+  z[otra] = z[otra].filter((x) => x !== n);
+  guardarZonas(pos, z);
+}
+
+async function guardarZonas(posicion, z) {
+  const vacia = !z.ataque.length && !z.defensa.length;
+  const nombre = `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`;
+  const pasos = vacia ? [] : [{ texto: posicion, posiciones: comoZonas(z) }];
+  // Se pinta ya, sin esperar a la hoja: tocar celdas tiene que ir fluido.
+  if (estado.hoja) {
+    const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== idZona(posicion));
+    estado.hoja.jugadas = vacia ? otras
+      : [...otras, { id: idZona(posicion), nombre, tipo: 'zonas', sistema: pizarra.sistema, pasos }];
+  }
+  pintarPizarra();
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'jugada', pin: recuperar(CLAVE_PIN),
+    id: idZona(posicion), nombre, tipo: 'zonas', sistema: pizarra.sistema, pasos,
+  }).catch(() => null);
+  if (!r?.ok) aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+}
+
+/* ───────── El campo ───────── */
+
+function campoFutbol7() {
+  const linea = { fill: 'none', stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8 };
+  return [
+    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, fill: '#14532d' }),
+    svg('rect', { x: 3, y: 3, width: 94, height: ALTO_CAMPO - 6, ...linea }),
+    svg('line', { x1: 3, y1: ALTO_CAMPO / 2, x2: 97, y2: ALTO_CAMPO / 2, ...linea }),
+    svg('circle', { cx: 50, cy: ALTO_CAMPO / 2, r: 11, ...linea }),
+    svg('rect', { x: 22, y: 3, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 22, y: ALTO_CAMPO - 25, width: 56, height: 22, ...linea }),
+    svg('rect', { x: 38, y: 0.5, width: 24, height: 4, ...linea }),
+    svg('rect', { x: 38, y: ALTO_CAMPO - 4.5, width: 24, height: 4, ...linea }),
+  ];
+}
+
+function construirCampoPizarra() {
+  // Ojo con la clase: «campo» ya es la de los formularios (display: grid) y rompe el SVG.
+  const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo-pizarra',
+    'aria-label': 'Pizarra de estrategia' },
+    campoFutbol7(),
+    svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS ↑'));
+
+  // La rejilla de zonas, por debajo de las fichas
+  const rejilla = svg('g', { class: 'rejilla-zonas' });
+  for (let n = 0; n < COLS_ZONA * FILAS_ZONA; n++) {
+    const { x, y, w, h } = cajaCelda(n);
+    const celda = svg('rect', { x: x + 0.3, y: y + 0.3, width: w - 0.6, height: h - 0.6, rx: 1,
+      class: 'celda-zona', 'data-celda': n });
+    celda.addEventListener('click', () => tocarCelda(n));
+    rejilla.appendChild(celda);
+  }
+  campo.appendChild(rejilla);
+  campo.appendChild(svg('g', { class: 'rastro' }));
+
+  Object.keys(RIVALES).forEach((id) => {
+    const [x, y] = RIVALES[id];
+    campo.appendChild(svg('g', { class: 'rival', 'data-pieza': id, transform: `translate(${x} ${y})` },
+      svg('circle', { r: 3.2 })));
+  });
+
+  posicionesDe().forEach((pos) => {
+    const [x, y] = pos.base;
+    const g = svg('g', { class: 'ficha', transform: `translate(${x} ${y})`,
+      'data-pieza': pos.id, tabindex: '0', role: 'button', 'aria-label': pos.nombre },
+      svg('circle', { r: 4.4 }),
+      svg('text', { y: 1.5, 'text-anchor': 'middle', class: 'dorsal-ficha' }, pos.corto));
+    const elegir = () => {
+      if (grabando) return;
+      pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id;
+      pintarPizarra();
+    };
+    g.addEventListener('click', elegir);
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegir(); } });
+    campo.appendChild(g);
+  });
+
+  campo.appendChild(svg('g', { class: 'balon', 'data-pieza': 'balon', transform: 'translate(50 131)' },
+    svg('circle', { r: 2.4 }), svg('circle', { r: 1, class: 'balon-centro' })));
+
+  prepararArrastre(campo);
+  return campo;
+}
+
+const sitioDe = (g) => {
+  const m = /translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec(g.getAttribute('transform') || '');
+  return m ? [Number(m[1]), Number(m[2])] : [50, 75];
+};
+
+/** Arrastrar con el dedo. Grabando, cada arrastre queda apuntado como un movimiento. */
+function prepararArrastre(campo) {
+  let llevando = null;
+  let desde = null;
+  const punto = (ev) => {
+    const caja = campo.getBoundingClientRect();
+    return [
+      Math.max(2, Math.min(98, ((ev.clientX - caja.left) / caja.width) * 100)),
+      Math.max(2, Math.min(ALTO_CAMPO - 2, ((ev.clientY - caja.top) / caja.height) * ALTO_CAMPO)),
+    ];
+  };
+  campo.addEventListener('pointerdown', (ev) => {
+    if (!grabando) return;
+    const pieza = ev.target.closest('[data-pieza]');
+    if (!pieza) return;
+    llevando = pieza;
+    desde = sitioDe(pieza);
+    pieza.classList.add('llevando');
+    try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
+    ev.preventDefault();
+  });
+  campo.addEventListener('pointermove', (ev) => {
+    if (!llevando) return;
+    const [x, y] = punto(ev);
+    llevando.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+  });
+  const soltar = () => {
+    if (!llevando) return;
+    const pieza = llevando;
+    llevando = null;
+    pieza.classList.remove('llevando');
+    const hasta = sitioDe(pieza);
+    if (!grabando) return;
+    // Un toque sin mover no cuenta como movimiento.
+    if (Math.abs(hasta[0] - desde[0]) < 1.5 && Math.abs(hasta[1] - desde[1]) < 1.5) {
+      pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
+      return;
+    }
+    if (grabando.movs.length >= MAX_MOVS) {
+      pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
+      return aviso(`El máximo son ${MAX_MOVS} movimientos`, true);
+    }
+    grabando.movs.push({ pieza: pieza.dataset.pieza, de: desde, a: hasta });
+    pintarPizarra();
+  };
+  campo.addEventListener('pointerup', soltar);
+  campo.addEventListener('pointercancel', soltar);
+}
+
+function leerCampo() {
+  const sitios = {};
+  $('#pizarra .campo-pizarra')?.querySelectorAll('[data-pieza]').forEach((g) => {
+    sitios[g.dataset.pieza] = sitioDe(g);
+  });
+  return sitios;
+}
+
+/** Coloca las fichas, el balón, las zonas y las flechas del recorrido. */
+function moverPizarra(campo) {
+  const enZonas = pizarra.pestana === 'zonas';
+  campo.setAttribute('class', `campo-pizarra${enZonas ? ' en-zonas' : ''}${grabando ? ' grabando' : ''}`);
+
+  const foto = fotograma();
+  if (foto) {
+    campo.querySelectorAll('[data-pieza]').forEach((g) => {
+      const xy = foto.sitios[g.dataset.pieza];
+      if (xy) g.setAttribute('transform', `translate(${xy[0]} ${xy[1]})`);
+      g.classList.toggle('moviendo', Boolean(foto.resaltar) && g.dataset.pieza === foto.resaltar);
+    });
+    campo.querySelector('.balon').setAttribute('opacity', foto.conBalon || enZonas ? '1' : '0.4');
+  } else {
+    campo.querySelector('.balon').setAttribute('opacity', '1');
+  }
+
+  posicionesDe().forEach((pos) => {
+    campo.querySelector(`[data-pieza="${pos.id}"]`)?.classList.toggle('elegida', pos.id === pizarra.posicion);
+  });
+
+  // Las zonas de la posición elegida
+  const z = enZonas && pizarra.posicion ? celdasZona(pizarra.posicion) : { ataque: [], defensa: [] };
+  campo.querySelectorAll('.celda-zona').forEach((c) => {
+    const n = Number(c.dataset.celda);
+    c.classList.toggle('ataque', z.ataque.includes(n));
+    c.classList.toggle('defensa', z.defensa.includes(n));
+  });
+
+  // Las flechas de los movimientos ya hechos
+  const rastro = campo.querySelector('.rastro');
+  while (rastro.firstChild) rastro.removeChild(rastro.firstChild);
+  if (!enZonas) {
+    const movs = grabando ? grabando.movs : (jugadaActual()?.movs || []).slice(0, pizarra.paso);
+    movs.forEach((m, i) => rastro.appendChild(svg('line', {
+      x1: m.de[0], y1: m.de[1], x2: m.a[0], y2: m.a[1],
+      class: `flecha-mov${m.pieza === 'balon' ? ' de-balon' : ''}${i === movs.length - 1 ? ' ultima' : ''}`,
+    })));
+  }
+}
+
+/* ───────── La pizarra entera ───────── */
+
+function pintarPizarra() {
+  const caja = $('#pizarra');
+  if (!caja) return;
+  const enZonas = pizarra.pestana === 'zonas';
+  const jugada = jugadaActual();
+  const puedeGrabar = permitido('jugada');
+
+  let campo = caja.querySelector('.campo-pizarra');
+  if (!campo || caja.dataset.sistema !== pizarra.sistema) {
+    campo = construirCampoPizarra();
+    caja.dataset.sistema = pizarra.sistema;
+  }
+
+  const cambiar = (cambio) => () => {
+    if (grabando) return aviso('Primero para la grabación', true);
+    pararJugada();
+    cambio();
+    pintarPizarra();
+  };
+
+  const botonPestana = (t) => h('button', {
+    type: 'button', class: `chip-pest${t.id === pizarra.pestana ? ' puesto' : ''}`,
+    onclick: cambiar(() => { pizarra.pestana = t.id; pizarra.jugada = null; pizarra.paso = 0; }),
+  }, t.corto);
+
+  const botonSistema = (s) => h('button', {
+    type: 'button', class: `chip-sistema${s.id === pizarra.sistema ? ' puesto' : ''}`,
+    onclick: cambiar(() => { pizarra.sistema = s.id; pizarra.jugada = null; pizarra.paso = 0; pizarra.posicion = null; }),
+  }, h('strong', { text: s.nombre }), h('small', { text: s.apodo }));
+
+  const botonJugada = (j) => h('button', {
+    type: 'button', class: `chip-jugada ${j.tipo}${j.id === pizarra.jugada ? ' puesto' : ''}${j.ejemplo ? ' ejemplo' : ''}`,
+    onclick: () => {
+      pararJugada();
+      pizarra.jugada = j.id === pizarra.jugada ? null : j.id;
+      pizarra.paso = 0;
+      pintarPizarra();
+      if (pizarra.jugada) arrancarJugada();
+    },
+  }, j.nombre, j.ejemplo ? h('small', { text: ' · ejemplo' }) : null);
+
+  const botonPosicion = (p) => h('button', {
+    type: 'button', class: `chip-pos${p.id === pizarra.posicion ? ' puesto' : ''}`,
+    onclick: () => { pizarra.posicion = pizarra.posicion === p.id ? null : p.id; pintarPizarra(); },
+  }, p.corto);
+
+  const lista = enZonas ? [] : jugadasDe(pizarra.pestana);
+
+  pintar(caja,
+    h('div', { class: 'pestanas-pizarra' }, PESTANAS_PIZARRA.map(botonPestana)),
+    h('div', { class: 'sistemas' }, SISTEMAS.map(botonSistema)),
+    grabando ? cajaGrabacion() : null,
+    !grabando && !enZonas
+      ? h('div', { class: 'jugadas' }, lista.length
+          ? lista.map(botonJugada)
+          : h('p', { class: 'apagado', text: 'Todavía no hay jugadas de este tipo.' }))
+      : null,
+    enZonas
+      ? h('div', { class: 'mandos-zonas' },
+          h('div', { class: 'posiciones-pizarra' }, posicionesDe().map(botonPosicion)),
+          pizarra.posicion && puedeGrabar
+            ? h('div', { class: 'modos-zona' },
+                h('button', { type: 'button', class: `chip-modo ataque${pizarra.modoZona === 'ataque' ? ' puesto' : ''}`,
+                  onclick: () => { pizarra.modoZona = 'ataque'; pintarPizarra(); } }, 'Pintar ataque'),
+                h('button', { type: 'button', class: `chip-modo defensa${pizarra.modoZona === 'defensa' ? ' puesto' : ''}`,
+                  onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Pintar defensa'),
+                h('button', { type: 'button', class: 'chip-modo borrar',
+                  onclick: () => guardarZonas(pizarra.posicion, { ataque: [], defensa: [] }) }, 'Borrar'))
+            : null)
+      : null,
+    campo,
+    jugada && !grabando
+      ? h('div', { class: 'mandos-jugada' },
+          h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Movimiento anterior', onclick: () => irAPaso(pizarra.paso - 1) }, '‹'),
+          h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarJugada },
+            pizarra.bucle ? '⏸ Parar' : '▶ Ver jugada'),
+          h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Movimiento siguiente', onclick: () => irAPaso(pizarra.paso + 1) }, '›'),
+          h('span', { class: 'cuenta-pasos', text: `${pizarra.paso} de ${jugada.movs.length}` }))
+      : null,
+    explicaPizarra(jugada, enZonas, puedeGrabar),
+    !grabando && !enZonas && puedeGrabar
+      ? h('div', { class: 'fila-acciones' },
+          h('button', { type: 'button', class: 'boton', onclick: empezarGrabacion },
+            `● Grabar jugada ${pizarra.pestana === 'defensa' ? 'defensiva' : 'ofensiva'}`),
+          jugada?.grabada
+            ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) }, 'Borrar esta jugada')
+            : null)
+      : null,
+    h('p', { class: 'apagado pie-pizarra' },
+      h('span', { class: 'punto nuestro' }), ' nosotros · ',
+      h('span', { class: 'punto rival' }), ' rivales · ',
+      h('span', { class: 'punto pelota' }), ' balón'));
+
+  campo.getBoundingClientRect();  // fuerza el repintado antes de mover
+  moverPizarra(campo);
+}
+
+function explicaPizarra(jugada, enZonas, puedeGrabar) {
+  if (grabando) return null;
+  const pos = posicionesDe().find((p) => p.id === pizarra.posicion);
+
+  if (enZonas) {
+    if (!pos) {
+      return h('div', { class: 'explica-pizarra' }, h('p', { class: 'apagado',
+        text: 'Elige una posición, en el campo o en los botones de arriba, para ver las zonas que tiene que cubrir.' }));
+    }
+    const z = celdasZona(pos.id);
+    return h('div', { class: 'explica-pizarra' },
+      h('h3', {}, pos.nombre),
+      h('p', { class: 'paso-ataque' }, h('strong', { text: 'Con balón: ' }), pos.txtAtaque),
+      h('p', { class: 'paso-defensa' }, h('strong', { text: 'Sin balón: ' }), pos.txtDefensa),
+      h('p', { class: 'apagado', text: puedeGrabar
+        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y toca el campo.`
+        : `${z.ataque.length} ${z.ataque.length === 1 ? 'zona' : 'zonas'} de ataque (rojo) y ${z.defensa.length} de defensa (verde).` }));
+  }
+
+  if (jugada) {
+    const foto = fotograma();
+    return h('div', { class: 'explica-pizarra' },
+      h('h3', {}, jugada.nombre),
+      h('p', { class: `paso-${jugada.tipo}`, text: foto?.texto
+        || (pizarra.paso ? `Movimiento ${pizarra.paso}: ${nombrePieza(jugada.movs[pizarra.paso - 1].pieza)}` : 'Colocación de salida') }));
+  }
+
+  return h('div', { class: 'explica-pizarra' }, pos
+    ? [h('h3', {}, pos.nombre),
+       h('p', { class: 'paso-ataque' }, h('strong', { text: 'Con balón: ' }), pos.txtAtaque),
+       h('p', { class: 'paso-defensa' }, h('strong', { text: 'Sin balón: ' }), pos.txtDefensa)]
+    : h('p', { class: 'apagado', text: 'Elige una jugada para verla, o toca una ficha para saber qué hace esa posición.' }));
+}
+
+/* ───────── Grabar ───────── */
+
+const nombrePieza = (id) => (id === 'balon' ? 'el balón'
+  : posicionesDe().find((p) => p.id === id)?.nombre
+  || (/^r\d$/.test(id) ? `rival ${id.slice(1)}` : id));
+
+function cajaGrabacion() {
+  const n = grabando.movs.length;
+  return h('div', { class: 'grabacion' },
+    h('h3', {}, '● Grabando'),
+    h('p', { class: 'ayuda', text: n
+      ? 'Sigue moviendo. Cada arrastre se graba en el orden en que lo haces.'
+      : 'Arrastra las fichas, los rivales y el balón. Cada arrastre es un movimiento de la jugada.' }),
+    h('p', { class: 'cuenta-movs' },
+      h('strong', { text: `${n} ${n === 1 ? 'movimiento' : 'movimientos'}` }),
+      n ? h('span', { class: 'apagado', text: ` · el último, ${nombrePieza(grabando.movs[n - 1].pieza)}` }) : null),
+    h('label', { class: 'campo-texto' },
+      h('span', { text: 'Nombre de la jugada' }),
+      h('input', { type: 'text', id: 'nombre-jugada', maxlength: 60, value: grabando.nombre,
+        placeholder: grabando.tipo === 'defensa' ? 'Repliegue tras pérdida' : 'Saque de banda ensayado',
+        oninput: (ev) => { grabando.nombre = ev.target.value; } })),
+    h('div', { class: 'fila-acciones' },
+      h('button', { type: 'button', class: 'boton', disabled: !n, onclick: guardarGrabacion }, '■ Parar y guardar'),
+      n ? h('button', { type: 'button', class: 'boton-secundario', onclick: deshacerMovimiento }, 'Deshacer el último') : null,
+      h('button', { type: 'button', class: 'boton-secundario', onclick: () => { grabando = null; pintarPizarra(); } }, 'Cancelar')));
+}
+
+function empezarGrabacion() {
+  pararJugada();
+  pizarra.jugada = null;
+  pizarra.paso = 0;
+  pizarra.posicion = null;
+  grabando = { id: `j${Date.now()}`, nombre: '', tipo: pizarra.pestana === 'defensa' ? 'defensa' : 'ataque', inicio: null, movs: [] };
+  pintarPizarra();
+  grabando.inicio = leerCampo();  // la colocación de salida es la que hay al empezar
+}
+
+function deshacerMovimiento() {
+  const m = grabando.movs.pop();
+  if (m) {
+    const g = $(`#pizarra [data-pieza="${m.pieza}"]`);
+    if (g) g.setAttribute('transform', `translate(${m.de[0]} ${m.de[1]})`);
+  }
+  pintarPizarra();
+}
+
+async function guardarGrabacion() {
+  if (!grabando?.movs.length) return;
+  const nombre = (grabando.nombre || '').trim() || (grabando.tipo === 'defensa' ? 'Jugada defensiva' : 'Jugada ofensiva');
+  const pasos = [
+    { texto: '', posiciones: comoSitios(grabando.inicio || colocacionBase()) },
+    ...grabando.movs.map((m) => ({ texto: '', posiciones: comoMovimiento(m) })),
+  ];
+  const guardada = { id: grabando.id, nombre, tipo: grabando.tipo, sistema: pizarra.sistema, pasos };
+  const r = await enviarHoja(CONFIG.hoja, { accion: 'jugada', pin: recuperar(CLAVE_PIN), ...guardada }).catch(() => null);
+  if (!r?.ok) return aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+  aviso('Jugada guardada ✓');
+  if (estado.hoja) {
+    estado.hoja.jugadas = [...(estado.hoja.jugadas || []).filter((j) => j.id !== guardada.id), guardada];
+  }
+  pizarra.jugada = guardada.id;
+  pizarra.paso = 0;
+  grabando = null;
+  pintarPizarra();
+  cargarHoja();
+}
+
+async function borrarJugada(jugada) {
+  if (!confirm(`¿Borrar la jugada «${jugada.nombre}»?`)) return;
+  const r = await enviarHoja(CONFIG.hoja, { accion: 'jugada', pin: recuperar(CLAVE_PIN), id: jugada.id, pasos: [] }).catch(() => null);
+  if (!r?.ok) return aviso('No se ha podido borrar', true);
+  aviso('Jugada borrada ✓');
+  if (estado.hoja) estado.hoja.jugadas = (estado.hoja.jugadas || []).filter((j) => j.id !== jugada.id);
+  pizarra.jugada = null;
+  pizarra.paso = 0;
+  pintarPizarra();
+  cargarHoja();
+}
+
+/* ───────── Reproducir ───────── */
+
+function irAPaso(n) {
+  const jugada = jugadaActual();
+  if (!jugada) return;
+  pararJugada();
+  const total = jugada.movs.length;
+  pizarra.paso = ((n % (total + 1)) + total + 1) % (total + 1);
+  pintarPizarra();
+}
+
+function arrancarJugada() {
+  if (!jugadaActual() || pizarra.bucle) return;
+  pizarra.paso = 0;
+  pizarra.bucle = setInterval(() => {
+    const j = jugadaActual();
+    if (!j) return pararJugada();
+    pizarra.paso = pizarra.paso >= j.movs.length ? 0 : pizarra.paso + 1;
+    pintarPizarra();
+  }, PASO_MS);
+  pintarPizarra();
+}
+
+function alternarJugada() {
+  if (pizarra.bucle) { pararJugada(); pintarPizarra(); } else arrancarJugada();
+}
+
+function pararJugada() {
+  if (pizarra.bucle) clearInterval(pizarra.bucle);
+  pizarra.bucle = null;
 }
 
 /* ───────────────────────── Arranque ───────────────────────── */

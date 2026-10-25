@@ -1349,3 +1349,117 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 #proximo-partido .resumen-conv .si { color: #145c2e; }
 #proximo-partido .resumen-conv .rojo { color: #8c1d16; }
 #proximo-partido .vacio, #proximo-partido .vacio p { color: #3a2b00; }
+
+/* ═════════ Pizarra: jugadas y zonas ═════════ */
+#pizarra { display: grid; gap: 10px; }
+
+.pestanas-pizarra { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.chip-pest {
+  cursor: pointer; padding: 9px 6px; border-radius: 10px; min-height: 38px;
+  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
+  font-weight: 700; font-size: 0.78rem;
+}
+.chip-pest.puesto { background: var(--naranja); border-color: var(--naranja); color: #111; }
+
+.sistemas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chip-sistema {
+  display: grid; gap: 1px; cursor: pointer; padding: 7px 10px; border-radius: 10px;
+  background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto); text-align: center;
+}
+.chip-sistema strong { font-family: var(--display); font-size: 1.05rem; letter-spacing: 0.02em; }
+.chip-sistema small { font-size: 0.7rem; color: var(--texto-3); }
+.chip-sistema.puesto { border-color: var(--naranja); background: var(--naranja-tenue); }
+.chip-sistema.puesto small { color: var(--naranja-claro); }
+
+.jugadas { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.jugadas .apagado { margin: 0; font-size: 0.82rem; }
+.chip-jugada {
+  cursor: pointer; font-weight: 700; font-size: 0.8rem; padding: 7px 11px; border-radius: 999px; min-height: 36px;
+  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
+}
+.chip-jugada small { font-weight: 600; opacity: 0.65; font-size: 0.86em; }
+.chip-jugada.ataque.puesto { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+.chip-jugada.defensa.puesto { background: #2ecc71; border-color: #2ecc71; color: #062513; }
+
+.mandos-zonas { display: grid; gap: 8px; }
+.posiciones-pizarra { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.chip-pos {
+  cursor: pointer; font-weight: 800; font-size: 0.72rem; min-width: 46px; min-height: 34px;
+  padding: 6px 8px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
+}
+.chip-pos.puesto { background: var(--naranja); border-color: var(--naranja); color: #111; }
+.modos-zona { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+.chip-modo {
+  cursor: pointer; font-weight: 700; font-size: 0.76rem; min-height: 36px; padding: 7px 8px;
+  border-radius: 8px; background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto-2);
+}
+.chip-modo.ataque.puesto { background: rgba(240, 68, 56, 0.25); border-color: var(--rojo); color: #ffd9d6; }
+.chip-modo.defensa.puesto { background: rgba(46, 204, 113, 0.22); border-color: #2ecc71; color: #d6ffe8; }
+.chip-modo.borrar { color: var(--texto-3); }
+
+#pizarra .campo-pizarra {
+  /* El alto hay que decirlo: un SVG sin height no siempre respeta el viewBox */
+  width: 100%; max-width: 330px; height: auto; aspect-ratio: 2 / 3;
+  margin: 0 auto; display: block; border-radius: 10px; touch-action: manipulation;
+}
+#pizarra .campo-pizarra.grabando { touch-action: none; box-shadow: 0 0 0 2px var(--naranja); }
+#pizarra .rotulo-campo { font-size: 4.2px; font-weight: 800; fill: rgba(255, 255, 255, 0.6); font-family: var(--cuerpo); letter-spacing: 0.3px; }
+
+#pizarra .celda-zona { fill: transparent; stroke: none; pointer-events: none; }
+#pizarra .en-zonas .celda-zona { pointer-events: auto; cursor: pointer; stroke: rgba(255, 255, 255, 0.18); stroke-width: 0.3; }
+#pizarra .celda-zona.ataque { fill: rgba(239, 48, 36, 0.62); stroke: #ff6b5e; stroke-width: 0.4; }
+#pizarra .celda-zona.defensa { fill: rgba(22, 230, 120, 0.5); stroke: #7dffbb; stroke-width: 0.4; }
+
+#pizarra .ficha { cursor: pointer; transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+#pizarra .ficha circle { fill: var(--naranja); stroke: #000; stroke-width: 1; }
+#pizarra .ficha.elegida circle { fill: #fff; stroke-width: 1.6; }
+#pizarra .ficha.moviendo circle { fill: #fff; }
+#pizarra .dorsal-ficha { font-size: 3.2px; font-weight: 800; fill: #000; stroke: none; font-family: var(--cuerpo); }
+#pizarra .rival { transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+#pizarra .rival circle { fill: #e8e8e8; stroke: #2b2b2b; stroke-width: 0.8; }
+#pizarra .balon { transition: transform 1s cubic-bezier(0.3, 0, 0.2, 1), opacity 0.4s; }
+#pizarra .balon circle { fill: #fff; stroke: #111; stroke-width: 0.7; }
+#pizarra .balon .balon-centro { fill: #111; stroke: none; }
+#pizarra .llevando { transition: none; }
+#pizarra .llevando circle { stroke: #fff; stroke-width: 1.8; }
+
+#pizarra .flecha-mov { stroke: rgba(255, 255, 255, 0.45); stroke-width: 0.7; stroke-dasharray: 2 1.5; pointer-events: none; }
+#pizarra .flecha-mov.de-balon { stroke: var(--ambar); stroke-dasharray: none; }
+#pizarra .flecha-mov.ultima { stroke: #fff; stroke-width: 1; }
+
+.mandos-jugada { display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.chip-fase {
+  cursor: pointer; min-width: 38px; min-height: 36px; padding: 6px 10px; border-radius: 8px;
+  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto); font-weight: 700;
+}
+.chip-fase.jugar { min-width: 112px; }
+.chip-fase.puesto { background: var(--naranja); border-color: var(--naranja); color: #111; }
+.cuenta-pasos { font-size: 0.78rem; color: var(--texto-3); font-weight: 700; }
+
+.explica-pizarra { background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 10px 12px; }
+.explica-pizarra h3 { font-family: var(--display); font-weight: 400; font-size: 1.1rem; text-transform: uppercase; margin: 0 0 4px; }
+.explica-pizarra p { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.45; }
+.explica-pizarra .paso-ataque { border-left: 3px solid var(--rojo); padding-left: 8px; }
+.explica-pizarra .paso-defensa { border-left: 3px solid #2ecc71; padding-left: 8px; }
+
+.pie-pizarra { display: flex; align-items: center; gap: 4px; justify-content: center; font-size: 0.72rem; margin: 0; }
+.pie-pizarra .punto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.pie-pizarra .punto.nuestro { background: var(--naranja); }
+.pie-pizarra .punto.rival { background: #e8e8e8; }
+.pie-pizarra .punto.pelota { background: #fff; border: 2px solid #111; }
+
+.grabacion {
+  background: #1a0f00; border: 2px solid var(--naranja); border-radius: var(--radio);
+  padding: 12px; display: grid; gap: 8px;
+}
+.grabacion h3 { font-size: 0.9rem; color: var(--naranja); margin: 0; }
+.grabacion .ayuda, .grabacion .cuenta-movs { margin: 0; font-size: 0.82rem; }
+.grabacion .campo-texto { display: grid; gap: 4px; font-size: 0.78rem; color: var(--texto-2); }
+.grabacion input[type="text"] {
+  width: 100%; background: var(--negro); border: 1px solid var(--borde); border-radius: 8px;
+  color: var(--texto); padding: 9px; font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #pizarra .ficha, #pizarra .rival, #pizarra .balon { transition: none; }
+}

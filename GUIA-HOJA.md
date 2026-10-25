@@ -160,6 +160,21 @@ Al entrar, después del PIN, cada uno **elige su nombre** una vez en su móvil. 
 - Se apunta como mucho una entrada por jugador cada media hora, para no llenar la hoja.
 - Queda en la pestaña **ENTRADAS**.
 
+### La pizarra: jugadas y zonas
+
+En **Equipo** hay un campo de fútbol 7 con tres pestañas: **Ofensivas**, **Defensivas** y **Zonas**.
+Con el PIN del míster o el tuyo puedes:
+
+- **Grabar una jugada.** Pulsas «● Grabar jugada», arrastras las fichas, los rivales y el balón, y cada
+  arrastre queda apuntado como un movimiento, en el orden en que lo haces. Le pones nombre y
+  «■ Parar y guardar». El equipo la ve con ◀ ▶ y con **▶ Ver jugada**, que la reproduce sola.
+- **Pintar zonas.** En «Zonas» eliges una posición y tocas el campo: rojo lo que tiene que cubrir
+  atacando, verde lo que cubre defendiendo. Se guarda al momento.
+
+Todo esto vive en la pestaña **JUGADAS**: una fila por movimiento, y una fila por posición para las
+zonas. No hace falta tocarla a mano. Las jugadas de ejemplo que vienen de serie no se borran: están
+en el código.
+
 ### Quién va al entreno
 
 Debajo del cuadro amarillo del próximo entreno hay un desplegable **«Jugadores que van al entreno»**:
