@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=39';
-import { cargarCopaFacil } from './copafacil.js?v=39';
-import { leerHoja, enviarHoja } from './hoja.js?v=39';
+import { CONFIG } from './config.js?v=40';
+import { cargarCopaFacil } from './copafacil.js?v=40';
+import { leerHoja, enviarHoja } from './hoja.js?v=40';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -198,7 +198,7 @@ const jugadorPorId = (id) => plantillaCompleta().find((j) => j.id === id);
 function gruposConvocatoria(p) {
   const activo = (id) => jugadorPorId(id)?.activo !== false;
   const c = convocatoriaDe(p.id);
-  if (c) {
+  if (c && (c.convocados.length || (c.noVienen || []).length)) {
     return {
       convocados: c.convocados.filter(activo),
       noVienen: (c.noVienen || []).filter(activo),
@@ -335,7 +335,7 @@ function resumenConvocatoria(p) {
   if (!g || g.deActa) return null;
   return h('p', { class: 'resumen-conv' },
     h('span', { class: 'si', text: `✓ ${g.convocados.length} ${g.convocados.length === 1 ? 'convocado' : 'convocados'}` }),
-    g.noVienen.length ? h('span', { class: 'rojo', text: `✗ ${g.noVienen.length} no ${g.noVienen.length === 1 ? 'viene' : 'vienen'}` }) : null);
+    g.noVienen.length ? h('span', { class: 'rojo', text: `✗ ${g.noVienen.length} ${g.noVienen.length === 1 ? 'descansa' : 'descansan'}` }) : null);
 }
 
 /** La tarjeta del próximo entreno; sale arriba del todo en Equipo y en Competición. */
@@ -383,7 +383,7 @@ function pintarResumenConvocatoria() {
   const grande = r ? `${r.confirmados.length}` : `${apuntados}`;
   const de = r ? `de ${r.total} convocados` : `${plural(jugadores().length, 'jugador en la plantilla', 'jugadores en la plantilla')}`;
   const pie = r
-    ? [r.bajas.length ? `${plural(r.bajas.length, 'baja', 'bajas')}` : null, r.faltan.length ? `${r.faltan.length} sin contestar` : null].filter(Boolean).join(' · ')
+    ? [r.bajas.length ? `${plural(r.bajas.length, 'descansa', 'descansan')}` : null, r.faltan.length ? `${r.faltan.length} sin contestar` : null].filter(Boolean).join(' · ')
     : lista.filter((x) => x.dice === 'no').length ? `${plural(lista.filter((x) => x.dice === 'no').length, 'ha dicho que no', 'han dicho que no')}` : '';
 
   pintar(caja, h('div', { class: `recuento-grande${r && r.confirmados.length >= r.total ? ' completo' : ''}` },
@@ -467,13 +467,13 @@ function etiquetasVoy(p) {
     ? g.convocados.filter((id) => lista.some((x) => x.id === id && x.dice === 'no')).length
     : 0;
 
-  if (convocado) return { convocado: true, hayLista, bajas, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'Darse de baja' };
+  if (convocado) return { convocado: true, hayLista, bajas, pregunta: `¿Confirmas ${cual}?`, si: 'Confirmar', no: 'Descansar' };
   if (!hayLista) return { convocado: false, hayLista, bajas, pregunta: `¿Vas a ${cual}?`, si: 'Voy', no: 'No voy' };
   // No convocado: solo puede ofrecerse si alguien se ha caído.
   return {
     convocado: false, hayLista, bajas, suplente: true, cerrado: bajas === 0,
-    pregunta: bajas ? `Hay ${plural(bajas, 'baja', 'bajas')} en ${cual}` : `Lista cerrada para ${cual}`,
-    aclaracion: 'Sustituyes a una baja',
+    pregunta: bajas ? `${plural(bajas, 'descansa', 'descansan')} en ${cual}` : `Lista cerrada para ${cual}`,
+    aclaracion: 'Sustituyes a quien descansa',
     si: 'Voy', no: 'No voy',
   };
 }
@@ -528,10 +528,10 @@ function pintarVoyRapido() {
     const va = mio.dice === 'voy';
     const dicho = va
       ? (e.convocado ? 'Confirmado' : 'Vas al partido')
-      : (e.hayLista ? 'De baja' : 'No vas al partido');
+      : (e.hayLista ? 'Descansas' : 'No vas al partido');
     // Debajo, en pequeño, la opción contraria: darse de baja o volver a apuntarse.
     const contraria = va
-      ? { dice: 'no', texto: e.hayLista ? 'Darse de baja' : 'No voy' }
+      ? { dice: 'no', texto: e.hayLista ? 'Descansar' : 'No voy' }
       : { dice: 'voy', texto: e.convocado ? 'Vuelvo a estar disponible' : 'Voy' };
     return pintar(caja,
       h('span', { class: 'estado-voy', text: `${va ? '✓' : '✗'} ${dicho}` }),
@@ -568,7 +568,7 @@ function bloquePrelista(p) {
     r
       ? [h('p', { class: 'recuento-conf' },
           h('strong', { text: `${r.confirmados.length} de ${r.total} confirmados` }),
-          r.bajas.length ? h('span', { class: 'baja-conf', text: ` · ${plural(r.bajas.length, 'baja', 'bajas')}` }) : null,
+          r.bajas.length ? h('span', { class: 'baja-conf', text: ` · ${plural(r.bajas.length, 'descansa', 'descansan')}` }) : null,
           r.faltan.length ? h('span', { class: 'apagado', text: ` · ${r.faltan.length} sin contestar` }) : null),
          r.faltan.length
            ? h('p', { class: 'apagado', text: `Falta por contestar: ${r.faltan.map((id) => nombreCorto(jugadorPorId(id))).filter(Boolean).join(', ')}.` })
@@ -653,7 +653,7 @@ function listasConvocatoria(p, g) {
     : null);
   return [
     grupo(pasado ? 'Vinieron' : 'Convocados', g.convocados, 'si'),
-    grupo(pasado ? 'No vinieron' : 'No vienen', g.noVienen, 'rojo'),
+    grupo(pasado ? 'No vinieron' : 'Descansan', g.noVienen, 'rojo'),
     grupo('No convocados', g.noConvocados, 'no'),
   ];
 }
@@ -1428,10 +1428,13 @@ function tarjetaPartido(p, { conConvocatoria = false, nuestro = false } = {}) {
 
   const g = gruposConvocatoria(p);
   const convocar = botonStaff(g && !g.deActa ? 'Editar convocatoria' : 'Convocatoria', () => abrirConvocatoria(p), 'boton-secundario', 'convocar');
+  const quitar = g && !g.deActa && !p.finalizado
+    ? botonStaff('Quitar convocatoria', () => quitarConvocatoria(p), 'boton-secundario', 'convocar')
+    : null;
   const comentar = p.finalizado && p.jornada
     ? botonStaff('Comentar', () => abrirComentarios(p.jornada), 'boton-secundario', 'comentar')
     : null;
-  const acciones = [convocar, comentar].filter(Boolean);
+  const acciones = [convocar, quitar, comentar].filter(Boolean);
   const listas = g && (conConvocatoria || p.finalizado) && hayHoja()
     ? desplegableConvocatoria(p, g, { abierto: false })
     : null;
@@ -2345,7 +2348,7 @@ async function conBotonOcupado(boton, tarea) {
 // Estados de un jugador en un partido. Tocar al jugador pasa al siguiente.
 const ESTADOS_PARTIDO = [
   { valor: 'convocado', etiqueta: '✓ Convocado', clase: 'si', singular: 'convocado', plural: 'convocados' },
-  { valor: 'no_viene', etiqueta: '✗ No viene', clase: 'rojo', singular: 'no viene', plural: 'no vienen' },
+  { valor: 'no_viene', etiqueta: '✗ Descansa', clase: 'rojo', singular: 'descansa', plural: 'descansan' },
   { valor: 'no_convocado', etiqueta: '– No convocado', clase: 'no', singular: 'no convocado', plural: 'no convocados' },
 ];
 const ESTADOS_PARTIDO_JUGADO = [
@@ -2448,7 +2451,7 @@ function abrirConvocatoria(p) {
     ayuda: pasado
       ? 'Partido ya jugado: deja en «Vino» a los que estuvieron y en «No vino» a los que faltaron (cuenta como falta, en rojo). Toca a un jugador para cambiarlo.'
       : hayConvocatoria
-        ? 'Sales de la convocatoria que ya habías hecho. Toca a cada jugador para cambiarlo: Convocado → No viene → No convocado.'
+        ? 'Sales de la convocatoria que ya habías hecho. Toca a cada jugador para cambiarlo: Convocado → Descansa → No convocado.'
         : prelista.size
           ? 'Salen convocados los que dijeron «Voy» en la prelista, y en rojo los que dijeron que no. Toca a cada jugador para cambiarlo.'
           : 'Todavía no se ha apuntado nadie, así que salen todos convocados. Toca a cada jugador para cambiarlo.',
@@ -2476,6 +2479,25 @@ function abrirConvocatoria(p) {
       return ok;
     },
   });
+}
+
+/** Deshace una convocatoria: todos a «no convocado», que es como no tenerla. */
+async function quitarConvocatoria(p) {
+  if (!confirm(`¿Quitar la convocatoria del partido contra ${rivalDe(p).nombre}?
+
+Vuelve a mandar la prelista: los jugadores dirán otra vez si van.`)) return;
+  const sel = new Map(plantillaCompleta().map((j) => [j.id, 'no_convocado']));
+  const ok = await enviarStaff({
+    accion: 'convocar',
+    partidoId: p.id,
+    fecha: p.fecha ? isoDe(p.fecha) : '',
+    rival: rivalDe(p).nombre,
+    jugadores: [...sel].map(([id, estadoJugador]) => ({ id, estado: estadoJugador })),
+  }, 'Convocatoria quitada ✓');
+  if (ok && estado.hoja) {
+    estado.hoja.convocatorias = { ...estado.hoja.convocatorias, [p.id]: { convocados: [], noVienen: [], noConvocados: [...sel.keys()] } };
+    pintarTodo();
+  }
 }
 
 function seleccionEntreno(fecha) {
