@@ -1414,10 +1414,9 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 #pizarra .campo-pizarra.grabando { touch-action: none; box-shadow: 0 0 0 2px var(--naranja); }
 
 
-#pizarra .celda-zona { fill: transparent; stroke: none; pointer-events: none; }
-#pizarra .en-zonas .celda-zona { pointer-events: auto; cursor: pointer; }
-#pizarra .celda-zona.ataque { fill: rgba(239, 48, 36, 0.7); stroke: #ff8a80; stroke-width: 0.4; }
-#pizarra .celda-zona.defensa { fill: rgba(16, 220, 110, 0.6); stroke: #8dffc4; stroke-width: 0.4; }
+#pizarra .capa-zonas { pointer-events: none; }
+#pizarra .zona, #pizarra .trazo-vivo { pointer-events: none; }
+#pizarra .en-zonas { cursor: crosshair; }
 
 #pizarra .ficha { cursor: pointer; transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
 #pizarra .ficha circle { fill: var(--naranja); stroke: #06130c; stroke-width: 1.1; }
@@ -1475,4 +1474,12 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 
 @media (prefers-reduced-motion: reduce) {
   #pizarra .ficha, #pizarra .rival, #pizarra .balon { transition: none; }
+}
+
+/* El resumen de la convocatoria en la tarjeta del próximo partido */
+#proximo-partido .resumen-conv { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.resumen-conv .cuando-conv { color: #6b4a00; font-size: 0.92em; }
+.resumen-conv .quitar-conv {
+  cursor: pointer; background: none; border: none; padding: 0; font: inherit;
+  color: #8c1d16; font-weight: 700; text-decoration: underline;
 }

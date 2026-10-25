@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=46';
-import { cargarCopaFacil } from './copafacil.js?v=46';
-import { leerHoja, enviarHoja } from './hoja.js?v=46';
+import { CONFIG } from './config.js?v=47';
+import { cargarCopaFacil } from './copafacil.js?v=47';
+import { leerHoja, enviarHoja } from './hoja.js?v=47';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -108,6 +108,8 @@ const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const isoDe = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
 const hoyIso = () => isoDe(Date.now());
 const esIso = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+/** De "2026-10-20T18:03:00.000Z" a "2026-10-20". */
+const diaDe = (s) => String(s || '').slice(0, 10);
 const msDeIso = (iso) => { const [a, m, d] = iso.split('-').map(Number); return Date.UTC(a, m - 1, d, 12); };
 const diasEntre = (isoA, isoB) => Math.round((msDeIso(isoB) - msDeIso(isoA)) / 86400000);
 
@@ -204,6 +206,7 @@ function gruposConvocatoria(p) {
       convocados: c.convocados.filter(activo),
       noVienen: (c.noVienen || []).filter(activo),
       noConvocados: (c.noConvocados || []).filter(activo),
+      actualizado: c.actualizado || '',
       deActa: false,
     };
   }
@@ -336,7 +339,12 @@ function resumenConvocatoria(p) {
   if (!g || g.deActa) return null;
   return h('p', { class: 'resumen-conv' },
     h('span', { class: 'si', text: `✓ ${g.convocados.length} ${g.convocados.length === 1 ? 'convocado' : 'convocados'}` }),
-    g.noVienen.length ? h('span', { class: 'rojo', text: `✗ ${g.noVienen.length} ${g.noVienen.length === 1 ? 'descansa' : 'descansan'}` }) : null);
+    g.noVienen.length ? h('span', { class: 'rojo', text: `✗ ${g.noVienen.length} ${g.noVienen.length === 1 ? 'descansa' : 'descansan'}` }) : null,
+    esIso(diaDe(g.actualizado)) ? h('span', { class: 'cuando-conv', text: `· del ${diaHoja(diaDe(g.actualizado), { day: 'numeric', month: 'short' })}` }) : null,
+    // Si está puesta sin querer, se quita desde aquí mismo.
+    permitido('convocar') && !p.finalizado
+      ? h('button', { type: 'button', class: 'quitar-conv', onclick: () => quitarConvocatoria(p) }, 'Quitarla')
+      : null);
 }
 
 /** La tarjeta del próximo entreno; sale arriba del todo en Equipo y en Competición. */
@@ -642,6 +650,9 @@ function desplegableConvocatoria(p, g, { abierto = false } = {}) {
       h('span', { class: `cuantos-conv${p.finalizado ? ' vinieron' : ''}`, text: p.finalizado ? plural(g.convocados.length, 'vino', 'vinieron') : plural(cuantos, 'respuesta', 'respuestas') })),
     h('div', { class: 'convocatoria compacta' },
       g.deActa ? h('p', { class: 'apagado', text: 'Según el acta de CopaFácil' }) : null,
+      !g.deActa && esIso(diaDe(g.actualizado))
+        ? h('p', { class: 'apagado', text: `La hizo el cuerpo técnico el ${diaHoja(diaDe(g.actualizado), { day: 'numeric', month: 'long' })}` })
+        : null,
       listasConvocatoria(p, g)));
 }
 
@@ -3051,8 +3062,6 @@ function mostrarVista(desdeClic) {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ALTO_CAMPO = 150;
 const PASO_MS = 1800;   // lo que dura cada movimiento al reproducir
-const COLS_ZONA = 4;
-const FILAS_ZONA = 6;
 const MAX_MOVS = 40;
 
 const svg = (etiqueta, attrs = {}, ...hijos) => {
@@ -3232,7 +3241,8 @@ const PESTANAS_PIZARRA = [
   { id: 'zonas', texto: 'Zonas a cubrir', corto: 'Zonas' },
 ];
 
-let pizarra = { sistema: SISTEMAS[0].id, pestana: 'ataque', jugada: null, paso: 0, posicion: null, bucle: null, modoZona: 'ataque' };
+let pizarra = { sistema: SISTEMAS[0].id, pestana: 'ataque', jugada: null, paso: 0, posicion: null,
+  bucle: null, modoZona: 'ataque', colocando: null };
 let grabando = null;  // { id, nombre, tipo, inicio: {pieza:[x,y]}, movs: [{pieza, de, a}] }
 
 const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
@@ -3263,18 +3273,46 @@ function leerPaso(texto) {
   return { pieza: m[1], de: [Number(m[2]), Number(m[3])], a: [Number(m[4]), Number(m[5])] };
 }
 
-/** Dónde empieza todo el mundo en el sistema elegido. */
-function colocacionBase() {
+/** La colocación de fábrica del sistema elegido. */
+function colocacionDeFabrica() {
   const sitios = { balon: [50, 131] };  // a los pies del portero, no encima
   posicionesDe().forEach((p) => { sitios[p.id] = [...p.base]; });
   Object.entries(RIVALES).forEach(([id, xy]) => { sitios[id] = [...xy]; });
   return sitios;
 }
 
+const idInicio = () => `i-${pizarra.sistema}-${pizarra.pestana === 'defensa' ? 'd' : 'a'}`;
+
+/** Dónde empieza todo el mundo: la salida guardada por el míster o, si no hay, la de fábrica. */
+function colocacionBase() {
+  const fila = (estado.hoja?.jugadas || []).find((j) => j.id === idInicio());
+  const guardada = fila ? leerPaso(fila.pasos?.[0]?.posiciones)?.inicio : null;
+  return { ...colocacionDeFabrica(), ...(guardada || {}) };
+}
+const hayInicioPropio = () => Boolean((estado.hoja?.jugadas || []).find((j) => j.id === idInicio()));
+
+/** Guarda (o borra) la colocación de salida de esta pestaña. */
+async function guardarInicio(sitios) {
+  const id = idInicio();
+  const tipo = pizarra.pestana === 'defensa' ? 'defensa' : 'ataque';
+  const nombre = `Salida · ${sistemaActual().nombre} · ${tipo}`;
+  const pasos = sitios ? [{ texto: 'inicio', posiciones: comoSitios(sitios) }] : [];
+  if (estado.hoja) {
+    const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== id);
+    estado.hoja.jugadas = sitios ? [...otras, { id, nombre, tipo: 'inicio', sistema: pizarra.sistema, pasos }] : otras;
+  }
+  pintarPizarra();
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'jugada', pin: recuperar(CLAVE_PIN), id, nombre, tipo: 'inicio', sistema: pizarra.sistema, pasos,
+  }).catch(() => null);
+  if (!r?.ok) return aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+  aviso(sitios ? 'Colocación de salida guardada ✓' : 'Vuelve la colocación de fábrica');
+}
+
 /** Las jugadas grabadas por el cuerpo técnico, listas para reproducir. */
 function jugadasGrabadas(tipo) {
   return (estado.hoja?.jugadas || [])
-    .filter((j) => j.tipo === tipo && (!j.sistema || j.sistema === pizarra.sistema))
+    .filter((j) => j.tipo === tipo && j.id !== idInicio() && (!j.sistema || j.sistema === pizarra.sistema))
     .map((j) => {
       const pasos = (j.pasos || []).map((x) => leerPaso(x.posiciones)).filter(Boolean);
       return {
@@ -3289,7 +3327,8 @@ function jugadasGrabadas(tipo) {
 /** Los ejemplos que vienen de serie, traducidos al mismo formato de movimientos. */
 function ejemplosComoMovs(tipo) {
   return sistemaActual().jugadas.filter((j) => j.tipo === tipo).map((j) => {
-    const sitios = colocacionBase();
+    const sitios0 = colocacionDeFabrica();   // los ejemplos salen de la de fábrica
+    const sitios = { ...sitios0 };
     const movs = [];
     j.pasos.forEach((paso) => {
       const cambios = { ...(paso.mover || {}), ...(paso.rivales || {}) };
@@ -3300,7 +3339,7 @@ function ejemplosComoMovs(tipo) {
         sitios[pieza] = a;
       });
     });
-    return { id: j.id, nombre: j.nombre, tipo: j.tipo, inicio: colocacionBase(), movs, ejemplo: true };
+    return { id: j.id, nombre: j.nombre, tipo: j.tipo, inicio: sitios0, movs, ejemplo: true };
   }).filter((j) => j.movs.length);
 }
 
@@ -3310,6 +3349,7 @@ const jugadaActual = () => jugadasDe(pizarra.pestana).find((x) => x.id === pizar
 /** La foto del campo en el movimiento en el que estamos. */
 function fotograma() {
   if (grabando) return null;  // grabando manda lo que hay en el campo, que lo mueve el dedo
+  if (pizarra.colocando) return { sitios: pizarra.colocando, texto: '', conBalon: true };
   const jugada = jugadaActual();
   if (!jugada) return { sitios: colocacionBase(), texto: '', conBalon: false };
   const sitios = { ...colocacionBase(), ...(jugada.inicio || {}) };
@@ -3324,49 +3364,54 @@ function fotograma() {
 }
 
 /* ───────── Zonas a cubrir ───────── */
+/* Se pintan con el dedo. De cada trazo se guardan unos pocos puntos y al dibujarlo
+   se redondean las esquinas, que si no se nota mucho el pulso. */
 
 const idZona = (posicion) => `z-${pizarra.sistema}-${posicion}`;
+const MAX_PUNTOS = 40;    // por fase, para que quepa en la celda de la hoja
+const PASO_MIN = 3;       // separación mínima entre puntos, en unidades del campo
 
-function celdasZona(posicion) {
+function zonasDe(posicion) {
   const fila = (estado.hoja?.jugadas || []).find((j) => j.id === idZona(posicion));
   const res = { ataque: [], defensa: [] };
   String(fila?.pasos?.[0]?.posiciones || '').split(';').forEach((trozo) => {
-    const [clave, listaTexto] = trozo.split(':');
-    if (clave === 'ataque' || clave === 'defensa') {
-      // Ojo: una lista vacía ("defensa:") no puede acabar siendo la celda 0.
-      res[clave] = String(listaTexto || '').split(',').filter((x) => x.trim() !== '').map(Number)
-        .filter((n) => Number.isInteger(n) && n >= 0 && n < COLS_ZONA * FILAS_ZONA);
-    }
+    const i = trozo.indexOf(':');
+    const clave = trozo.slice(0, i);
+    if (clave !== 'ataque' && clave !== 'defensa') return;
+    res[clave] = trozo.slice(i + 1).split('/').map((trazo) => trazo.trim().split(' ')
+      .map((par) => par.split(',').map(Number))
+      .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))).filter((t) => t.length >= 3);
   });
   return res;
 }
 
-const comoZonas = (z) => `ataque:${z.ataque.join(',')};defensa:${z.defensa.join(',')}`;
+const comoTrazos = (trazos) => trazos.map((t) => t.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ')).join('/');
+const comoZonas = (z) => `ataque:${comoTrazos(z.ataque)};defensa:${comoTrazos(z.defensa)}`;
 
-function cajaCelda(n) {
-  const col = n % COLS_ZONA;
-  const fil = Math.floor(n / COLS_ZONA);
-  return { x: (col * 100) / COLS_ZONA, y: (fil * ALTO_CAMPO) / FILAS_ZONA, w: 100 / COLS_ZONA, h: ALTO_CAMPO / FILAS_ZONA };
+/** Redondea las esquinas de un trazo cerrado (Chaikin). */
+function suavizar(puntos, vueltas = 2) {
+  let p = puntos;
+  for (let v = 0; v < vueltas && p.length > 2; v++) {
+    const q = [];
+    for (let i = 0; i < p.length; i++) {
+      const a = p[i];
+      const b = p[(i + 1) % p.length];
+      q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+      q.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    p = q;
+  }
+  return p;
 }
 
-function tocarCelda(n) {
-  const pos = pizarra.posicion;
-  if (pizarra.pestana !== 'zonas' || !pos || !permitido('jugada')) return;
-  const z = celdasZona(pos);
-  const lista = z[pizarra.modoZona];
-  const i = lista.indexOf(n);
-  if (i >= 0) lista.splice(i, 1); else lista.push(n);
-  // Una celda es de ataque o de defensa, no de las dos.
-  const otra = pizarra.modoZona === 'ataque' ? 'defensa' : 'ataque';
-  z[otra] = z[otra].filter((x) => x !== n);
-  guardarZonas(pos, z);
-}
+const comoCamino = (puntos) => suavizar(puntos)
+  .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') + ' Z';
 
 async function guardarZonas(posicion, z) {
   const vacia = !z.ataque.length && !z.defensa.length;
   const nombre = `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`;
   const pasos = vacia ? [] : [{ texto: posicion, posiciones: comoZonas(z) }];
-  // Se pinta ya, sin esperar a la hoja: tocar celdas tiene que ir fluido.
+  // Se pinta ya, sin esperar a la hoja.
   if (estado.hoja) {
     const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== idZona(posicion));
     estado.hoja.jugadas = vacia ? otras
@@ -3378,6 +3423,13 @@ async function guardarZonas(posicion, z) {
     id: idZona(posicion), nombre, tipo: 'zonas', sistema: pizarra.sistema, pasos,
   }).catch(() => null);
   if (!r?.ok) aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+}
+
+function deshacerTrazo() {
+  const z = zonasDe(pizarra.posicion);
+  if (!z[pizarra.modoZona].length) return;
+  z[pizarra.modoZona].pop();
+  guardarZonas(pizarra.posicion, z);
 }
 
 /* ───────── El campo ───────── */
@@ -3404,16 +3456,8 @@ function construirCampoPizarra() {
     'aria-label': 'Pizarra de estrategia' },
     campoFutbol7());
 
-  // La rejilla de zonas, por debajo de las fichas
-  const rejilla = svg('g', { class: 'rejilla-zonas', display: 'none' });
-  for (let n = 0; n < COLS_ZONA * FILAS_ZONA; n++) {
-    const { x, y, w, h } = cajaCelda(n);
-    const celda = svg('rect', { x: x + 0.3, y: y + 0.3, width: w - 0.6, height: h - 0.6, rx: 1,
-      class: 'celda-zona', 'data-celda': n, fill: 'none', stroke: 'none' });
-    celda.addEventListener('click', () => tocarCelda(n));
-    rejilla.appendChild(celda);
-  }
-  campo.appendChild(rejilla);
+  // Las zonas pintadas van por debajo de las fichas
+  campo.appendChild(svg('g', { class: 'capa-zonas', display: 'none' }));
   campo.appendChild(svg('g', { class: 'rastro' }));
 
   Object.keys(RIVALES).forEach((id) => {
@@ -3430,6 +3474,7 @@ function construirCampoPizarra() {
       svg('text', { y: 1.5, 'text-anchor': 'middle', class: 'dorsal-ficha', fill: '#111', stroke: 'none' }, pos.corto));
     const elegir = () => {
       if (grabando) return;
+      if (g.dataset.arrastrada) { delete g.dataset.arrastrada; return; }
       pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id;
       pintarPizarra();
     };
@@ -3454,19 +3499,35 @@ const sitioDe = (g) => {
   return m ? [Number(m[1]), Number(m[2])] : [50, 75];
 };
 
-/** Arrastrar con el dedo. Grabando, cada arrastre queda apuntado como un movimiento. */
+/** Se puede mover ficha: grabando siempre, y si no, para dejar puesta la colocación de salida. */
+const sePuedeMover = () => Boolean(grabando)
+  || (permitido('jugada') && pizarra.pestana !== 'zonas' && !pizarra.jugada);
+
+/**
+ * El dedo sobre el campo. Según dónde estemos hace una cosa u otra:
+ * en «Zonas» pinta un trazo, y en las otras pestañas mueve fichas.
+ */
 function prepararArrastre(campo) {
   let llevando = null;
   let desde = null;
+  let trazo = null;
   const punto = (ev) => {
     const caja = campo.getBoundingClientRect();
     return [
-      Math.max(2, Math.min(98, ((ev.clientX - caja.left) / caja.width) * 100)),
-      Math.max(2, Math.min(ALTO_CAMPO - 2, ((ev.clientY - caja.top) / caja.height) * ALTO_CAMPO)),
+      Math.max(1, Math.min(99, ((ev.clientX - caja.left) / caja.width) * 100)),
+      Math.max(1, Math.min(ALTO_CAMPO - 1, ((ev.clientY - caja.top) / caja.height) * ALTO_CAMPO)),
     ];
   };
+
   campo.addEventListener('pointerdown', (ev) => {
-    if (!grabando) return;
+    if (pizarra.pestana === 'zonas') {
+      if (!pizarra.posicion || !permitido('jugada')) return;
+      trazo = [punto(ev)];
+      try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
+      ev.preventDefault();
+      return;
+    }
+    if (!sePuedeMover()) return;
     const pieza = ev.target.closest('[data-pieza]');
     if (!pieza) return;
     llevando = pieza;
@@ -3475,22 +3536,48 @@ function prepararArrastre(campo) {
     try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
     ev.preventDefault();
   });
+
   campo.addEventListener('pointermove', (ev) => {
+    if (trazo) {
+      const [x, y] = punto(ev);
+      const ultimo = trazo[trazo.length - 1];
+      if (Math.hypot(x - ultimo[0], y - ultimo[1]) < PASO_MIN) return;
+      if (trazo.length < MAX_PUNTOS) trazo.push([x, y]);
+      pintarTrazoEnCurso(campo, trazo);
+      return;
+    }
     if (!llevando) return;
     const [x, y] = punto(ev);
     llevando.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
   });
+
   const soltar = () => {
+    if (trazo) {
+      const puntos = trazo;
+      trazo = null;
+      pintarTrazoEnCurso(campo, null);
+      if (puntos.length >= 3) {
+        const z = zonasDe(pizarra.posicion);
+        const fase = z[pizarra.modoZona];
+        // Caben dos o tres trazos por fase; si no, no entra en la hoja.
+        while (fase.reduce((n, t) => n + t.length, puntos.length) > MAX_PUNTOS) fase.shift();
+        fase.push(puntos);
+        guardarZonas(pizarra.posicion, z);
+      }
+      return;
+    }
     if (!llevando) return;
     const pieza = llevando;
     llevando = null;
     pieza.classList.remove('llevando');
     const hasta = sitioDe(pieza);
-    if (!grabando) return;
-    // Un toque sin mover no cuenta como movimiento.
-    if (Math.abs(hasta[0] - desde[0]) < 1.5 && Math.abs(hasta[1] - desde[1]) < 1.5) {
-      pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
-      return;
+    const quieto = Math.abs(hasta[0] - desde[0]) < 1.5 && Math.abs(hasta[1] - desde[1]) < 1.5;
+    if (quieto) return pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
+    pieza.dataset.arrastrada = '1';   // para que el clic no lo tome por una selección
+    if (!grabando) {
+      // Colocando la salida: se queda donde lo dejes.
+      pizarra.colocando = leerCampo();
+      return pintarPizarra();
     }
     if (grabando.movs.length >= MAX_MOVS) {
       pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
@@ -3501,6 +3588,21 @@ function prepararArrastre(campo) {
   };
   campo.addEventListener('pointerup', soltar);
   campo.addEventListener('pointercancel', soltar);
+}
+
+/** El trazo que se está dibujando ahora mismo, sin guardar todavía. */
+function pintarTrazoEnCurso(campo, puntos) {
+  let g = campo.querySelector('.trazo-vivo');
+  if (!puntos) return g && g.remove();
+  if (!g) {
+    g = svg('path', { class: 'trazo-vivo', 'stroke-linejoin': 'round' });
+    campo.querySelector('.capa-zonas').appendChild(g);
+  }
+  const color = pizarra.modoZona === 'ataque' ? 'rgba(239,48,36,0.55)' : 'rgba(16,220,110,0.45)';
+  g.setAttribute('d', comoCamino(puntos));
+  g.setAttribute('fill', color);
+  g.setAttribute('stroke', pizarra.modoZona === 'ataque' ? '#ff8a80' : '#8dffc4');
+  g.setAttribute('stroke-width', '0.6');
 }
 
 function leerCampo() {
@@ -3536,19 +3638,18 @@ function moverPizarra(campo) {
     g.querySelector('circle')?.setAttribute('fill', marcada ? '#fff' : '#ff6b00');
   });
 
-  // Las zonas de la posición elegida. Fuera de la pestaña «Zonas» la rejilla ni se dibuja:
-  // 24 rectángulos invisibles encima del césped daban problemas en algunos móviles.
-  const rejilla = campo.querySelector('.rejilla-zonas');
-  rejilla.setAttribute('display', enZonas ? 'inline' : 'none');
-  const z = enZonas && pizarra.posicion ? celdasZona(pizarra.posicion) : { ataque: [], defensa: [] };
-  campo.querySelectorAll('.celda-zona').forEach((c) => {
-    const n = Number(c.dataset.celda);
-    const fase = z.ataque.includes(n) ? 'ataque' : z.defensa.includes(n) ? 'defensa' : '';
-    c.setAttribute('class', `celda-zona${fase ? ` ${fase}` : ''}`);
-    c.setAttribute('fill', fase === 'ataque' ? 'rgba(239,48,36,0.7)' : fase === 'defensa' ? 'rgba(16,220,110,0.6)' : 'none');
-    c.setAttribute('stroke', enZonas ? (fase === 'ataque' ? '#ff8a80' : fase === 'defensa' ? '#8dffc4' : 'rgba(255,255,255,0.18)') : 'none');
-    c.setAttribute('stroke-width', enZonas ? 0.4 : 0);
-  });
+  // Las zonas pintadas. Fuera de la pestaña «Zonas» la capa ni se dibuja.
+  const capa = campo.querySelector('.capa-zonas');
+  capa.setAttribute('display', enZonas ? 'inline' : 'none');
+  while (capa.firstChild) capa.removeChild(capa.firstChild);
+  if (enZonas && pizarra.posicion) {
+    const z = zonasDe(pizarra.posicion);
+    [['defensa', 'rgba(16,220,110,0.55)', '#8dffc4'], ['ataque', 'rgba(239,48,36,0.6)', '#ff8a80']]
+      .forEach(([fase, relleno, borde]) => z[fase].forEach((trazo) => capa.appendChild(svg('path', {
+        class: `zona ${fase}`, d: comoCamino(trazo), fill: relleno, stroke: borde,
+        'stroke-width': 0.6, 'stroke-linejoin': 'round',
+      }))));
+  }
 
   // Las flechas de los movimientos ya hechos
   const rastro = campo.querySelector('.rastro');
@@ -3580,6 +3681,7 @@ function pintarPizarra() {
   const cambiar = (cambio) => () => {
     if (grabando) return aviso('Primero para la grabación', true);
     pararJugada();
+    pizarra.colocando = null;
     cambio();
     pintarPizarra();
   };
@@ -3598,6 +3700,7 @@ function pintarPizarra() {
     type: 'button', class: `chip-jugada ${j.tipo}${j.id === pizarra.jugada ? ' puesto' : ''}${j.ejemplo ? ' ejemplo' : ''}`,
     onclick: () => {
       pararJugada();
+      pizarra.colocando = null;
       pizarra.jugada = j.id === pizarra.jugada ? null : j.id;
       pizarra.paso = 0;
       pintarPizarra();
@@ -3611,6 +3714,7 @@ function pintarPizarra() {
   }, p.corto);
 
   const lista = enZonas ? [] : jugadasDe(pizarra.pestana);
+  const colocando = Boolean(pizarra.colocando);
 
   pintar(caja,
     h('div', { class: 'pestanas-pizarra' }, PESTANAS_PIZARRA.map(botonPestana)),
@@ -3625,13 +3729,15 @@ function pintarPizarra() {
       ? h('div', { class: 'mandos-zonas' },
           h('div', { class: 'posiciones-pizarra' }, posicionesDe().map(botonPosicion)),
           pizarra.posicion && puedeGrabar
-            ? h('div', { class: 'modos-zona' },
+            ? [h('div', { class: 'modos-zona' },
                 h('button', { type: 'button', class: `chip-modo ataque${pizarra.modoZona === 'ataque' ? ' puesto' : ''}`,
                   onclick: () => { pizarra.modoZona = 'ataque'; pintarPizarra(); } }, 'Pintar ataque'),
                 h('button', { type: 'button', class: `chip-modo defensa${pizarra.modoZona === 'defensa' ? ' puesto' : ''}`,
-                  onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Pintar defensa'),
-                h('button', { type: 'button', class: 'chip-modo borrar',
-                  onclick: () => guardarZonas(pizarra.posicion, { ataque: [], defensa: [] }) }, 'Borrar'))
+                  onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Pintar defensa')),
+               h('div', { class: 'fila-acciones' },
+                h('button', { type: 'button', class: 'boton-secundario', onclick: deshacerTrazo }, 'Deshacer el último'),
+                h('button', { type: 'button', class: 'boton-secundario',
+                  onclick: () => guardarZonas(pizarra.posicion, { ataque: [], defensa: [] }) }, 'Borrar todo'))]
             : null)
       : null,
     h('p', { class: 'rotulo-ataque', text: 'Atacamos hacia arriba ↑' }),
@@ -3649,6 +3755,17 @@ function pintarPizarra() {
       ? h('div', { class: 'fila-acciones' },
           h('button', { type: 'button', class: 'boton', onclick: empezarGrabacion },
             `● Grabar jugada ${pizarra.pestana === 'defensa' ? 'defensiva' : 'ofensiva'}`),
+          colocando
+            ? h('button', { type: 'button', class: 'boton',
+                onclick: () => { guardarInicio(leerCampo()); pizarra.colocando = null; } }, 'Marcar como inicio')
+            : null,
+          colocando
+            ? h('button', { type: 'button', class: 'boton-secundario',
+                onclick: () => { pizarra.colocando = null; pintarPizarra(); } }, 'Dejarlo como estaba')
+            : null,
+          !colocando && hayInicioPropio()
+            ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => guardarInicio(null) }, 'Quitar el inicio guardado')
+            : null,
           jugada?.grabada
             ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) }, 'Borrar esta jugada')
             : null)
@@ -3671,13 +3788,13 @@ function explicaPizarra(jugada, enZonas, puedeGrabar) {
       return h('div', { class: 'explica-pizarra' }, h('p', { class: 'apagado',
         text: 'Elige una posición, en el campo o en los botones de arriba, para ver las zonas que tiene que cubrir.' }));
     }
-    const z = celdasZona(pos.id);
+    const z = zonasDe(pos.id);
     return h('div', { class: 'explica-pizarra' },
       h('h3', {}, pos.nombre),
       h('p', { class: 'paso-ataque' }, h('strong', { text: 'Con balón: ' }), pos.txtAtaque),
       h('p', { class: 'paso-defensa' }, h('strong', { text: 'Sin balón: ' }), pos.txtDefensa),
       h('p', { class: 'apagado', text: puedeGrabar
-        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y toca el campo.`
+        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y dibuja la zona con el dedo.`
         : `${z.ataque.length} ${z.ataque.length === 1 ? 'zona' : 'zonas'} de ataque (rojo) y ${z.defensa.length} de defensa (verde).` }));
   }
 
@@ -3730,7 +3847,8 @@ function empezarGrabacion() {
   pizarra.posicion = null;
   grabando = { id: `j${Date.now()}`, nombre: '', tipo: pizarra.pestana === 'defensa' ? 'defensa' : 'ataque', inicio: null, movs: [] };
   pintarPizarra();
-  grabando.inicio = leerCampo();  // la colocación de salida es la que hay al empezar
+  grabando.inicio = leerCampo();  // se graba desde donde esté puesto el equipo ahora
+  pizarra.colocando = null;
 }
 
 function deshacerMovimiento() {

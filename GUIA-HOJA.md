@@ -168,8 +168,13 @@ Con el PIN del míster o el tuyo puedes:
 - **Grabar una jugada.** Pulsas «● Grabar jugada», arrastras las fichas, los rivales y el balón, y cada
   arrastre queda apuntado como un movimiento, en el orden en que lo haces. Le pones nombre y
   «■ Parar y guardar». El equipo la ve con ◀ ▶ y con **▶ Ver jugada**, que la reproduce sola.
-- **Pintar zonas.** En «Zonas» eliges una posición y tocas el campo: rojo lo que tiene que cubrir
-  atacando, verde lo que cubre defendiendo. Se guarda al momento.
+- **Poner la colocación de salida.** Fuera de la grabación, arrastra a quien quieras (un saque de
+  banda, un córner, un saque de puerta) y pulsa **«Marcar como inicio»**. A partir de ahí la pizarra
+  siempre sale así, y las jugadas que grabes parten de esa colocación. Hay una por sistema y por
+  pestaña, y se deshace con «Quitar el inicio guardado».
+- **Pintar zonas.** En «Zonas» eliges una posición y **dibujas con el dedo** la zona que tiene que
+  cubrir: rojo atacando, verde defendiendo. Se le redondean las esquinas solo, para que no se note
+  el pulso. Caben dos o tres trazos por fase y se guarda al momento.
 
 Todo esto vive en la pestaña **JUGADAS**: una fila por movimiento, y una fila por posición para las
 zonas. No hace falta tocarla a mano. Las jugadas de ejemplo que vienen de serie no se borran: están
