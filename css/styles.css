@@ -1241,61 +1241,7 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .recuento-grande .de { font-weight: 800; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.06em; }
 .recuento-grande .pie-recuento { font-size: 0.8rem; font-weight: 600; opacity: 0.85; }
 
-/* ═════════ Pizarra de estrategia ═════════ */
-#pizarra { display: grid; gap: 10px; }
-.sistemas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.chip-sistema {
-  display: grid; gap: 1px; cursor: pointer; padding: 8px 10px; border-radius: 10px;
-  background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto); text-align: center;
-}
-.chip-sistema strong { font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.04em; }
-.chip-sistema small { font-size: 0.7rem; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.06em; }
-.chip-sistema.puesto { background: var(--naranja); border-color: var(--naranja); color: #000; }
-.chip-sistema.puesto small { color: #3d1c00; }
-.resumen-sistema { margin: 0; font-size: 0.85rem; }
-#pizarra .campo-pizarra {
-  width: 100%; max-width: 330px; height: auto; aspect-ratio: 100 / 150; margin: 0 auto; display: block;
-  border-radius: 12px; border: 1px solid var(--borde); background: #14532d;
-}
-#pizarra .rotulo-campo {
-  font-size: 4px; font-weight: 800; letter-spacing: 1px; fill: rgba(255, 255, 255, 0.45);
-  stroke: none; font-family: var(--cuerpo);
-}
-#pizarra .ficha { cursor: pointer; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-#pizarra .ficha circle { fill: var(--naranja); stroke: #000; stroke-width: 1; transition: fill 0.3s; }
-#pizarra .ficha.elegida circle { fill: #fff; stroke-width: 1.6; }
-#pizarra .fase-defensa .ficha circle { fill: #4f8bf5; }
-#pizarra .fase-ataque .ficha circle { fill: #ff6b00; }
-#pizarra .ficha.elegida circle { fill: #fff; }
-#pizarra .dorsal-ficha { font-size: 4.4px; font-weight: 800; fill: #000; stroke: none; font-family: var(--cuerpo); }
-#pizarra .flecha-pizarra { pointer-events: none; }
-.fases { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.chip-fase {
-  cursor: pointer; font-weight: 700; font-size: 0.85rem; padding: 8px 12px; border-radius: 999px; min-height: 40px;
-  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
-}
-.chip-fase.puesto { color: #000; font-weight: 800; }
-.chip-fase.base.puesto { background: var(--naranja); border-color: var(--naranja); }
-.chip-fase.defensa.puesto { background: #4f8bf5; border-color: #4f8bf5; }
-.chip-fase.ataque.puesto { background: var(--rojo); border-color: var(--rojo); color: #fff; }
-.chip-fase.jugar { margin-left: auto; }
-.chip-fase.jugar.puesto { background: var(--verde); border-color: var(--verde); }
-.posiciones-pizarra { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
-.chip-posicion {
-  cursor: pointer; font-weight: 800; font-size: 0.75rem; padding: 6px 10px; border-radius: 999px; min-height: 34px;
-  background: var(--negro); border: 1px solid var(--borde); color: var(--texto-2); letter-spacing: 0.04em;
-}
-.chip-posicion.puesto { background: #fff; border-color: #fff; color: #000; }
-.explica-pizarra { background: var(--panel-2); border: 1px solid var(--borde); border-radius: var(--radio); padding: 10px 12px; }
-.explica-pizarra h3 { font-family: var(--display); font-weight: 400; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 4px; }
-.explica-pizarra p { margin: 4px 0 0; font-size: 0.85rem; line-height: 1.45; }
-.explica-pizarra .en-defensa strong { color: #4f8bf5; }
-.explica-pizarra .en-ataque strong { color: var(--rojo); }
-@media (prefers-reduced-motion: reduce) {
-  #pizarra .ficha { transition: none; }
-}
-
-/* ═════════ Ajustes finos: partido nuestro, entreno y pizarra v2 ═════════ */
+/* ═════════ Nuestros partidos y el próximo entreno ═════════ */
 .partido.el-nuestro {
   background: linear-gradient(0deg, rgba(79, 139, 245, 0.24), rgba(79, 139, 245, 0.24)), var(--panel);
   border-color: #3a6fd8;
@@ -1317,50 +1263,24 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .tarjeta-grande.entreno .acciones-tarjeta { margin-top: 8px; }
 .tarjeta-grande.entreno .boton,
 .tarjeta-grande.entreno .boton-secundario { padding: 7px 10px; font-size: 0.8rem; min-height: 36px; }
+.partido.el-nuestro.ganado {
+  background: linear-gradient(0deg, rgba(37, 168, 92, 0.13), rgba(37, 168, 92, 0.13)), var(--panel);
+  border-color: rgba(37, 168, 92, 0.45);
+  box-shadow: inset 3px 0 0 #25a85c;
+}
+.partido.el-nuestro.perdido {
+  background: linear-gradient(0deg, rgba(227, 60, 60, 0.13), rgba(227, 60, 60, 0.13)), var(--panel);
+  border-color: rgba(227, 60, 60, 0.45);
+  box-shadow: inset 3px 0 0 #e33c3c;
+}
+.partido.el-nuestro.empatado {
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.09)), var(--panel);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.85);
+}
 
-/* Pizarra: jugadas, rivales y balón */
-.jugadas { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.etiqueta-jugadas {
-  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--texto-3); width: 100%; margin-top: 2px;
-}
-.chip-jugada {
-  cursor: pointer; font-weight: 700; font-size: 0.8rem; padding: 7px 11px; border-radius: 999px; min-height: 36px;
-  background: var(--panel-2); border: 1px solid var(--borde); color: var(--texto-2);
-}
-.chip-jugada.ataque.puesto { background: var(--rojo); border-color: var(--rojo); color: #fff; }
-.chip-jugada.defensa.puesto { background: #4f8bf5; border-color: #4f8bf5; color: #000; }
-#pizarra .rival circle { fill: #e8e8e8; stroke: #2b2b2b; stroke-width: 0.8; }
-#pizarra .rival { transition: transform 2.4s cubic-bezier(0.4, 0, 0.2, 1); }
-#pizarra .ficha { transition: transform 2.4s cubic-bezier(0.4, 0, 0.2, 1); }
-#pizarra .balon { transition: transform 1.6s cubic-bezier(0.3, 0, 0.2, 1), opacity 0.4s; }
-#pizarra .balon circle { fill: #fff; stroke: #111; stroke-width: 0.7; }
-#pizarra .balon .balon-centro { fill: #111; stroke: none; }
-#pizarra .dorsal-ficha { font-size: 3.4px; }
-.mandos-jugada { display: flex; align-items: center; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.cuenta-pasos { font-size: 0.78rem; color: var(--texto-3); font-weight: 700; }
-.explica-pizarra .paso-ataque { border-left: 3px solid var(--rojo); padding-left: 8px; }
-.explica-pizarra .paso-defensa { border-left: 3px solid #4f8bf5; padding-left: 8px; }
-.pie-pizarra { display: flex; align-items: center; gap: 4px; justify-content: center; font-size: 0.72rem; margin: 0; }
-.pie-pizarra .punto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.pie-pizarra .punto.nuestro { background: var(--naranja); }
-.pie-pizarra .punto.rival { background: #e8e8e8; }
-.pie-pizarra .punto.pelota { background: #fff; border: 2px solid #111; }
-
-/* Grabadora de jugadas */
-.grabacion {
-  background: #1a0f00; border: 2px solid var(--naranja); border-radius: var(--radio);
-  padding: 12px; display: grid; gap: 8px;
-}
-.grabacion h3 { font-size: 0.9rem; color: var(--naranja); display: flex; gap: 6px; align-items: baseline; }
-.grabacion .nombre-grabacion { color: var(--texto); font-family: var(--display); font-size: 1.1rem; }
-.grabacion .ayuda { margin: 0; }
-.grabacion .campo { margin: 0; }
-.grabacion input[type="text"] {
-  width: 100%; background: var(--negro); border: 1px solid var(--borde); border-radius: 8px;
-  color: var(--texto); padding: 9px; font: inherit; margin-top: 4px;
-}
-.pasos-grabados { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 0.82rem; color: var(--texto-2); }
-#pizarra .ficha.llevando circle, #pizarra .rival.llevando circle { stroke: #fff; stroke-width: 1.6; }
-#pizarra .llevando { transition: none; }
-#pizarra .campo-pizarra { touch-action: manipulation; }
+/* El resumen de cada jornada, del mismo color que el partido */
+.jornada-liga .jornada-nuestro.ganado { color: #4ed98b; }
+.jornada-liga .jornada-nuestro.perdido { color: #ff7b7b; }
+.jornada-liga .jornada-nuestro.empatado { color: #e9e9e9; }
+.jornada-liga .jornada-nuestro.pendiente { color: var(--naranja); }

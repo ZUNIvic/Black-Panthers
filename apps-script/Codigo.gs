@@ -20,7 +20,7 @@ const COPAFACIL = {
 
 const NARANJA = '#ff6b00';
 // Cambia con cada versión del script: sirve para comprobar qué hay publicado.
-const VERSION = '2026-10-24-jugadas';
+const VERSION = '2026-09-30-podio';
 
 // Estados de un jugador en un partido (antes: convocado; después: si vino o no).
 const ESTADOS = { convocado: 'Convocado', no_viene: 'No viene', no_convocado: 'No convocado' };
@@ -49,7 +49,6 @@ const HOJAS = {
   ENTRADAS: 'ENTRADAS',
   PRELISTA: 'PRELISTA',
   PREENTRENO: 'PREENTRENO',
-  JUGADAS: 'JUGADAS',
 };
 
 // Roles del equipo (se pueden poner varios por jugador, separados por comas).
@@ -136,10 +135,6 @@ const ESTRUCTURA = {
   PREENTRENO: {
     cabecera: ['Fecha entreno', 'Jugador ID', 'Jugador', 'Dice', 'Cuándo'],
     anchos: [120, 130, 220, 90, 150],
-  },
-  JUGADAS: {
-    cabecera: ['Jugada ID', 'Nombre', 'Tipo', 'Sistema', 'Paso', 'Texto', 'Posiciones', 'Actualizado'],
-    anchos: [120, 200, 90, 90, 60, 320, 420, 150],
   },
 };
 
@@ -327,7 +322,6 @@ function datosPublicos_() {
     estrategia: leerEstrategia_(),
     prelista: leerPrelista_(),
     preEntreno: leerPreEntreno_(),
-    jugadas: leerJugadas_(),
   };
 }
 
@@ -491,24 +485,6 @@ function leerPreEntreno_() {
   return res;
 }
 
-/** Las jugadas que ha grabado el cuerpo técnico en la pizarra. Las ve todo el equipo. */
-function leerJugadas_() {
-  const res = {};
-  filas_(HOJAS.JUGADAS).forEach((f) => {
-    const id = texto_(f['Jugada ID']);
-    if (!id) return;
-    const j = (res[id] = res[id] || {
-      id: id, nombre: texto_(f['Nombre']), tipo: normaliza_(f['Tipo']) === 'defensa' ? 'defensa' : 'ataque',
-      sistema: texto_(f['Sistema']), pasos: [],
-    });
-    const orden = Math.max(1, Math.round(Number(f['Paso']) || 1));
-    j.pasos[orden - 1] = { texto: texto_(f['Texto']), posiciones: texto_(f['Posiciones']) };
-  });
-  return Object.keys(res)
-    .map((k) => ({ ...res[k], pasos: res[k].pasos.filter(Boolean) }))
-    .filter((j) => j.pasos.length);
-}
-
 /* ───────────────────────── Web: escritura (staff) ───────────────────────── */
 
 function doPost(e) {
@@ -623,7 +599,6 @@ const PERMISOS = {
   tesoreria: ['tesoreria'], // el tesorero
   estrategia: ['staff'],    // la pizarra es del cuerpo técnico
   mvp: ['staff'],
-  jugada: ['staff'],  // las jugadas de la pizarra las graba el cuerpo técnico
   entradas: ['staff'], // quién entra en la web: solo el cuerpo técnico y tú
   votos: ['staff'],    // el recuento de la votación, que es secreto para los jugadores
   cambiarPin: ['staff', 'tesoreria'], // cada uno solo el suyo (se comprueba en doPost)
@@ -646,7 +621,6 @@ const ACCIONES = {
   entradas: resumenEntradas_,
   votos: verVotos_,
   mvp: guardarMvp_,
-  jugada: guardarJugada_,
   estrategia: guardarEstrategia_,
 };
 
@@ -1140,33 +1114,6 @@ function guardarPreEntreno_(p) {
   return { ok: true };
 }
 
-/**
- * Guarda una jugada de la pizarra: una fila por paso, con las posiciones
- * en una sola celda ("por:50,138|li:22,110|balon:50,132"). Sin pasos, se borra.
- */
-function guardarJugada_(p) {
-  const id = texto_(p.id).replace(/[^\w-]+/g, '').slice(0, 30);
-  if (!id) return { ok: false, error: 'datos_invalidos' };
-  const pasos = Array.isArray(p.pasos) ? p.pasos.slice(0, 12) : [];
-
-  const hoja = asegurarHoja_(HOJAS.JUGADAS);
-  borrarFilasDe_(hoja, id);
-  if (!pasos.length) return { ok: true, guardados: 0 };
-
-  const nombre = limpia_(p.nombre).slice(0, 60) || 'Jugada';
-  const tipo = normaliza_(p.tipo) === 'defensa' ? 'Defensa' : 'Ataque';
-  const sistema = limpia_(p.sistema).slice(0, 20);
-  const ahora = new Date();
-  const filas = pasos.map(function (paso, i) {
-    return [id, nombre, tipo, sistema, i + 1, limpiaLargo_(paso && paso.texto).slice(0, 300),
-      texto_(paso && paso.posiciones).slice(0, 900), ahora];
-  });
-  const inicio = ultimaFilaCon_(hoja, 1) + 1;
-  hoja.getRange(inicio, 1, filas.length, 8).setValues(filas);
-  hoja.getRange(inicio, 8, filas.length, 1).setNumberFormat('dd/mm/yyyy HH:mm');
-  return { ok: true, guardados: filas.length };
-}
-
 /** Pasar lista de un entreno: crea o actualiza la fila de esa fecha en ENTRENOS. */
 function guardarEntreno_(p) {
   const fecha = texto_(p.fecha);
@@ -1531,7 +1478,6 @@ function prepararHoja() {
       'QUEDADAS / FOTOS: el tercer tiempo. En FOTOS pega el enlace de Google Drive de cada foto, compartida con "cualquiera con el enlace".',
       'ENTRADAS: cada vez que un jugador abre la web. Solo lo ves tú y el cuerpo técnico, desde Equipo.',
       'PRELISTA: quién ha dicho que va a cada partido, por orden. La rellenan los jugadores desde la web.',
-      'JUGADAS: las jugadas que graba el cuerpo técnico en la pizarra. Una fila por paso. No hace falta tocarla.',
       'PREENTRENO: quién ha dicho que va a cada entreno. También la rellenan ellos, y no cuenta como asistencia: eso es ENTRENOS.',
       'MVP: el podio que publica el cuerpo técnico (1 oro, 2 plata, 3 bronce). Lo rellena la web.',
       'VOTOS: es secreto para los jugadores; solo lo ve el cuerpo técnico desde la web.',
