@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=48';
-import { cargarCopaFacil } from './copafacil.js?v=48';
-import { leerHoja, enviarHoja } from './hoja.js?v=48';
+import { CONFIG } from './config.js?v=49';
+import { cargarCopaFacil } from './copafacil.js?v=49';
+import { leerHoja, enviarHoja } from './hoja.js?v=49';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3368,8 +3368,9 @@ function fotograma() {
    se redondean las esquinas, que si no se nota mucho el pulso. */
 
 const idZona = (posicion) => `z-${pizarra.sistema}-${posicion}`;
-const MAX_PUNTOS = 40;    // por fase, para que quepa en la celda de la hoja
-const PASO_MIN = 3;       // separación mínima entre puntos, en unidades del campo
+const MAX_PUNTOS = 48;    // por fase, lo que cabe en la celda de la hoja
+const TOPE_VIVO = 400;    // lo que se guarda mientras el dedo va; luego se reparte
+const PASO_MIN = 2;       // separación mínima entre puntos, en unidades del campo
 
 function zonasDe(posicion) {
   const fila = (estado.hoja?.jugadas || []).find((j) => j.id === idZona(posicion));
@@ -3387,6 +3388,29 @@ function zonasDe(posicion) {
 
 const comoTrazos = (trazos) => trazos.map((t) => t.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ')).join('/');
 const comoZonas = (z) => `ataque:${comoTrazos(z.ataque)};defensa:${comoTrazos(z.defensa)}`;
+
+/**
+ * Deja el trazo en como mucho `tope` puntos, repartidos por igual a lo largo del
+ * recorrido. Así un trazo largo no se corta a la mitad: se guarda entero, con
+ * menos detalle.
+ */
+function repartir(puntos, tope) {
+  if (puntos.length <= tope) return puntos;
+  const hasta = [0];
+  for (let i = 1; i < puntos.length; i++) {
+    hasta.push(hasta[i - 1] + Math.hypot(puntos[i][0] - puntos[i - 1][0], puntos[i][1] - puntos[i - 1][1]));
+  }
+  const total = hasta[hasta.length - 1];
+  if (!total) return puntos.slice(0, tope);
+  const res = [];
+  let j = 0;
+  for (let k = 0; k < tope; k++) {
+    const d = (total * k) / tope;
+    while (j < hasta.length - 1 && hasta[j + 1] < d) j++;
+    res.push(puntos[j]);
+  }
+  return res;
+}
 
 /** Redondea las esquinas de un trazo cerrado (Chaikin). */
 function suavizar(puntos, vueltas = 2) {
@@ -3543,7 +3567,7 @@ function prepararArrastre(campo) {
       const [x, y] = punto(ev);
       const ultimo = trazo[trazo.length - 1];
       if (Math.hypot(x - ultimo[0], y - ultimo[1]) < PASO_MIN) return;
-      if (trazo.length < MAX_PUNTOS) trazo.push([x, y]);
+      if (trazo.length < TOPE_VIVO) trazo.push([x, y]);
       pintarTrazoEnCurso(campo, trazo);
       return;
     }
@@ -3560,9 +3584,10 @@ function prepararArrastre(campo) {
       if (puntos.length >= 3) {
         const z = zonasDe(pizarra.posicion);
         const fase = z[pizarra.modoZona];
+        const recortado = repartir(puntos, MAX_PUNTOS);
         // Caben dos o tres trazos por fase; si no, no entra en la hoja.
-        while (fase.reduce((n, t) => n + t.length, puntos.length) > MAX_PUNTOS) fase.shift();
-        fase.push(puntos);
+        while (fase.length && fase.reduce((n, t) => n + t.length, recortado.length) > MAX_PUNTOS) fase.shift();
+        fase.push(recortado);
         guardarZonas(pizarra.posicion, z);
       }
       return;
