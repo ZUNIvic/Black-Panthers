@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=45';
-import { cargarCopaFacil } from './copafacil.js?v=45';
-import { leerHoja, enviarHoja } from './hoja.js?v=45';
+import { CONFIG } from './config.js?v=46';
+import { cargarCopaFacil } from './copafacil.js?v=46';
+import { leerHoja, enviarHoja } from './hoja.js?v=46';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3383,10 +3383,11 @@ async function guardarZonas(posicion, z) {
 /* ───────── El campo ───────── */
 
 function campoFutbol7() {
-  // Las clases van en el CSS: los atributos fill/stroke los pisa la regla global de los iconos.
-  const linea = { class: 'linea-campo' };
+  // El color va en la clase Y en el atributo: hay móviles donde el CSS del SVG no cuaja.
+  const linea = { class: 'linea-campo', fill: 'none', stroke: 'rgba(255,255,255,0.62)', 'stroke-width': 0.7 };
   return [
-    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, class: 'cesped' }),
+    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, class: 'cesped',
+      fill: '#0a2e18', 'fill-opacity': 1, stroke: 'none' }),
     svg('rect', { x: 3, y: 3, width: 94, height: ALTO_CAMPO - 6, ...linea }),
     svg('line', { x1: 3, y1: ALTO_CAMPO / 2, x2: 97, y2: ALTO_CAMPO / 2, ...linea }),
     svg('circle', { cx: 50, cy: ALTO_CAMPO / 2, r: 11, ...linea }),
@@ -3404,11 +3405,11 @@ function construirCampoPizarra() {
     campoFutbol7());
 
   // La rejilla de zonas, por debajo de las fichas
-  const rejilla = svg('g', { class: 'rejilla-zonas' });
+  const rejilla = svg('g', { class: 'rejilla-zonas', display: 'none' });
   for (let n = 0; n < COLS_ZONA * FILAS_ZONA; n++) {
     const { x, y, w, h } = cajaCelda(n);
     const celda = svg('rect', { x: x + 0.3, y: y + 0.3, width: w - 0.6, height: h - 0.6, rx: 1,
-      class: 'celda-zona', 'data-celda': n });
+      class: 'celda-zona', 'data-celda': n, fill: 'none', stroke: 'none' });
     celda.addEventListener('click', () => tocarCelda(n));
     rejilla.appendChild(celda);
   }
@@ -3418,15 +3419,15 @@ function construirCampoPizarra() {
   Object.keys(RIVALES).forEach((id) => {
     const [x, y] = RIVALES[id];
     campo.appendChild(svg('g', { class: 'rival', 'data-pieza': id, transform: `translate(${x} ${y})` },
-      svg('circle', { r: 3.2 })));
+      svg('circle', { r: 3.2, fill: '#9aa3ab', stroke: '#06130c', 'stroke-width': 1 })));
   });
 
   posicionesDe().forEach((pos) => {
     const [x, y] = pos.base;
     const g = svg('g', { class: 'ficha', transform: `translate(${x} ${y})`,
       'data-pieza': pos.id, tabindex: '0', role: 'button', 'aria-label': pos.nombre },
-      svg('circle', { r: 4.4 }),
-      svg('text', { y: 1.5, 'text-anchor': 'middle', class: 'dorsal-ficha' }, pos.corto));
+      svg('circle', { r: 4.4, fill: '#ff6b00', stroke: '#06130c', 'stroke-width': 1.1 }),
+      svg('text', { y: 1.5, 'text-anchor': 'middle', class: 'dorsal-ficha', fill: '#111', stroke: 'none' }, pos.corto));
     const elegir = () => {
       if (grabando) return;
       pizarra.posicion = pizarra.posicion === pos.id ? null : pos.id;
@@ -3438,10 +3439,11 @@ function construirCampoPizarra() {
   });
 
   campo.appendChild(svg('g', { class: 'balon', 'data-pieza': 'balon', transform: 'translate(50 131)' },
-    svg('circle', { r: 3.2, class: 'cuero' }),
+    svg('circle', { r: 3.2, class: 'cuero', fill: '#fff', stroke: '#06130c', 'stroke-width': 0.8 }),
     // El pentágono central y las costuras que salen de sus vértices.
-    svg('path', { class: 'parche', d: 'M0 -1.3 L1.24 -0.4 L0.76 1.05 L-0.76 1.05 L-1.24 -0.4 Z' }),
-    svg('path', { class: 'costura', d: 'M0 -1.3 V-3 M1.24 -0.4 L2.85 0.93 M0.76 1.05 L1.76 2.43 M-0.76 1.05 L-1.76 2.43 M-1.24 -0.4 L-2.85 0.93' })));
+    svg('path', { class: 'parche', fill: '#111', stroke: 'none', d: 'M0 -1.3 L1.24 -0.4 L0.76 1.05 L-0.76 1.05 L-1.24 -0.4 Z' }),
+    svg('path', { class: 'costura', fill: 'none', stroke: '#111', 'stroke-width': 0.45,
+      d: 'M0 -1.3 V-3 M1.24 -0.4 L2.85 0.93 M0.76 1.05 L1.76 2.43 M-0.76 1.05 L-1.76 2.43 M-1.24 -0.4 L-2.85 0.93' })));
 
   prepararArrastre(campo);
   return campo;
@@ -3527,15 +3529,25 @@ function moverPizarra(campo) {
   }
 
   posicionesDe().forEach((pos) => {
-    campo.querySelector(`[data-pieza="${pos.id}"]`)?.classList.toggle('elegida', pos.id === pizarra.posicion);
+    const g = campo.querySelector(`[data-pieza="${pos.id}"]`);
+    if (!g) return;
+    const marcada = pos.id === pizarra.posicion || g.classList.contains('moviendo');
+    g.classList.toggle('elegida', pos.id === pizarra.posicion);
+    g.querySelector('circle')?.setAttribute('fill', marcada ? '#fff' : '#ff6b00');
   });
 
-  // Las zonas de la posición elegida
+  // Las zonas de la posición elegida. Fuera de la pestaña «Zonas» la rejilla ni se dibuja:
+  // 24 rectángulos invisibles encima del césped daban problemas en algunos móviles.
+  const rejilla = campo.querySelector('.rejilla-zonas');
+  rejilla.setAttribute('display', enZonas ? 'inline' : 'none');
   const z = enZonas && pizarra.posicion ? celdasZona(pizarra.posicion) : { ataque: [], defensa: [] };
   campo.querySelectorAll('.celda-zona').forEach((c) => {
     const n = Number(c.dataset.celda);
-    c.classList.toggle('ataque', z.ataque.includes(n));
-    c.classList.toggle('defensa', z.defensa.includes(n));
+    const fase = z.ataque.includes(n) ? 'ataque' : z.defensa.includes(n) ? 'defensa' : '';
+    c.setAttribute('class', `celda-zona${fase ? ` ${fase}` : ''}`);
+    c.setAttribute('fill', fase === 'ataque' ? 'rgba(239,48,36,0.7)' : fase === 'defensa' ? 'rgba(16,220,110,0.6)' : 'none');
+    c.setAttribute('stroke', enZonas ? (fase === 'ataque' ? '#ff8a80' : fase === 'defensa' ? '#8dffc4' : 'rgba(255,255,255,0.18)') : 'none');
+    c.setAttribute('stroke-width', enZonas ? 0.4 : 0);
   });
 
   // Las flechas de los movimientos ya hechos

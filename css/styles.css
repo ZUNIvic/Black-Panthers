@@ -1291,11 +1291,11 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 
 /* El escudo, grande y centrado, con la frase al lado */
 .hero-mini { justify-content: center; gap: 10px 14px; padding-top: 14px; }
-.hero-mini img { width: 104px; height: 104px; }
+.hero-mini img { width: 128px; height: 128px; }
 .hero-mini-texto { flex: 1 1 170px; max-width: 460px; }
 .hero-mini-frase { font-size: 1.25rem; }
 @media (min-width: 820px) {
-  .hero-mini img { width: 132px; height: 132px; }
+  .hero-mini img { width: 168px; height: 168px; }
   .hero-mini-frase { font-size: 1.6rem; }
 }
 
@@ -1415,7 +1415,7 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 
 
 #pizarra .celda-zona { fill: transparent; stroke: none; pointer-events: none; }
-#pizarra .en-zonas .celda-zona { pointer-events: auto; cursor: pointer; stroke: rgba(255, 255, 255, 0.18); stroke-width: 0.3; }
+#pizarra .en-zonas .celda-zona { pointer-events: auto; cursor: pointer; }
 #pizarra .celda-zona.ataque { fill: rgba(239, 48, 36, 0.7); stroke: #ff8a80; stroke-width: 0.4; }
 #pizarra .celda-zona.defensa { fill: rgba(16, 220, 110, 0.6); stroke: #8dffc4; stroke-width: 0.4; }
 
