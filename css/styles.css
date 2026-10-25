@@ -1405,13 +1405,16 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   margin: 0 auto; display: block; border-radius: 10px; touch-action: manipulation;
   fill: none; stroke: none; stroke-width: 0;
 }
+/* Mientras el dedo pinta o mueve fichas, el móvil no puede quedarse el gesto
+   para hacer scroll: si no, no llega ni un pointermove. */
+#pizarra .campo-pizarra.a-dedo { touch-action: none; }
 #pizarra .cesped { fill: #0a2e18; stroke: none; }
 #pizarra .linea-campo { fill: none; stroke: rgba(255, 255, 255, 0.62); stroke-width: 0.7; }
 #pizarra .rotulo-ataque {
   margin: 0; text-align: center; font-size: 0.68rem; font-weight: 800;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--texto-3);
 }
-#pizarra .campo-pizarra.grabando { touch-action: none; box-shadow: 0 0 0 2px var(--naranja); }
+#pizarra .campo-pizarra.grabando { box-shadow: 0 0 0 2px var(--naranja); }
 
 
 #pizarra .capa-zonas { pointer-events: none; }
@@ -1483,3 +1486,5 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
   cursor: pointer; background: none; border: none; padding: 0; font: inherit;
   color: #8c1d16; font-weight: 700; text-decoration: underline;
 }
+
+.ayuda-pizarra { margin: 0; font-size: 0.78rem; line-height: 1.35; text-align: center; }

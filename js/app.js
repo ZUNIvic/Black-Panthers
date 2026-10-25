@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=47';
-import { cargarCopaFacil } from './copafacil.js?v=47';
-import { leerHoja, enviarHoja } from './hoja.js?v=47';
+import { CONFIG } from './config.js?v=48';
+import { cargarCopaFacil } from './copafacil.js?v=48';
+import { leerHoja, enviarHoja } from './hoja.js?v=48';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3521,7 +3521,8 @@ function prepararArrastre(campo) {
 
   campo.addEventListener('pointerdown', (ev) => {
     if (pizarra.pestana === 'zonas') {
-      if (!pizarra.posicion || !permitido('jugada')) return;
+      if (!permitido('jugada')) return;
+      if (!pizarra.posicion) return aviso('Elige antes una posición', true);
       trazo = [punto(ev)];
       try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
       ev.preventDefault();
@@ -3616,7 +3617,8 @@ function leerCampo() {
 /** Coloca las fichas, el balón, las zonas y las flechas del recorrido. */
 function moverPizarra(campo) {
   const enZonas = pizarra.pestana === 'zonas';
-  campo.setAttribute('class', `campo-pizarra${enZonas ? ' en-zonas' : ''}${grabando ? ' grabando' : ''}`);
+  const aDedo = sePuedeMover() || (enZonas && pizarra.posicion && permitido('jugada'));
+  campo.setAttribute('class', `campo-pizarra${enZonas ? ' en-zonas' : ''}${grabando ? ' grabando' : ''}${aDedo ? ' a-dedo' : ''}`);
 
   const foto = fotograma();
   if (foto) {
@@ -3755,10 +3757,8 @@ function pintarPizarra() {
       ? h('div', { class: 'fila-acciones' },
           h('button', { type: 'button', class: 'boton', onclick: empezarGrabacion },
             `● Grabar jugada ${pizarra.pestana === 'defensa' ? 'defensiva' : 'ofensiva'}`),
-          colocando
-            ? h('button', { type: 'button', class: 'boton',
-                onclick: () => { guardarInicio(leerCampo()); pizarra.colocando = null; } }, 'Marcar como inicio')
-            : null,
+          h('button', { type: 'button', class: `boton${colocando ? '' : '-secundario'}`,
+            onclick: () => { guardarInicio(leerCampo()); pizarra.colocando = null; } }, 'Marcar como inicio'),
           colocando
             ? h('button', { type: 'button', class: 'boton-secundario',
                 onclick: () => { pizarra.colocando = null; pintarPizarra(); } }, 'Dejarlo como estaba')
@@ -3769,6 +3769,11 @@ function pintarPizarra() {
           jugada?.grabada
             ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) }, 'Borrar esta jugada')
             : null)
+      : null,
+    !grabando && !enZonas && puedeGrabar && !jugada
+      ? h('p', { class: 'apagado ayuda-pizarra', text: colocando
+          ? 'Colócalos como empieza la jugada y pulsa «Marcar como inicio».'
+          : 'Arrastra las fichas, los rivales y el balón para dejar puesta la colocación de salida.' })
       : null,
     h('p', { class: 'apagado pie-pizarra' },
       h('span', { class: 'punto nuestro' }), ' nosotros · ',
