@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=43';
-import { cargarCopaFacil } from './copafacil.js?v=43';
-import { leerHoja, enviarHoja } from './hoja.js?v=43';
+import { CONFIG } from './config.js?v=45';
+import { cargarCopaFacil } from './copafacil.js?v=45';
+import { leerHoja, enviarHoja } from './hoja.js?v=45';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3383,9 +3383,10 @@ async function guardarZonas(posicion, z) {
 /* ───────── El campo ───────── */
 
 function campoFutbol7() {
-  const linea = { fill: 'none', stroke: 'rgba(255,255,255,0.5)', 'stroke-width': 0.8 };
+  // Las clases van en el CSS: los atributos fill/stroke los pisa la regla global de los iconos.
+  const linea = { class: 'linea-campo' };
   return [
-    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, fill: '#14532d' }),
+    svg('rect', { x: 0, y: 0, width: 100, height: ALTO_CAMPO, rx: 2, class: 'cesped' }),
     svg('rect', { x: 3, y: 3, width: 94, height: ALTO_CAMPO - 6, ...linea }),
     svg('line', { x1: 3, y1: ALTO_CAMPO / 2, x2: 97, y2: ALTO_CAMPO / 2, ...linea }),
     svg('circle', { cx: 50, cy: ALTO_CAMPO / 2, r: 11, ...linea }),
@@ -3400,8 +3401,7 @@ function construirCampoPizarra() {
   // Ojo con la clase: «campo» ya es la de los formularios (display: grid) y rompe el SVG.
   const campo = svg('svg', { viewBox: `0 0 100 ${ALTO_CAMPO}`, class: 'campo-pizarra',
     'aria-label': 'Pizarra de estrategia' },
-    campoFutbol7(),
-    svg('text', { x: 50, y: 9, 'text-anchor': 'middle', class: 'rotulo-campo' }, 'ATACAMOS ↑'));
+    campoFutbol7());
 
   // La rejilla de zonas, por debajo de las fichas
   const rejilla = svg('g', { class: 'rejilla-zonas' });
@@ -3438,7 +3438,10 @@ function construirCampoPizarra() {
   });
 
   campo.appendChild(svg('g', { class: 'balon', 'data-pieza': 'balon', transform: 'translate(50 131)' },
-    svg('circle', { r: 2.4 }), svg('circle', { r: 1, class: 'balon-centro' })));
+    svg('circle', { r: 3.2, class: 'cuero' }),
+    // El pentágono central y las costuras que salen de sus vértices.
+    svg('path', { class: 'parche', d: 'M0 -1.3 L1.24 -0.4 L0.76 1.05 L-0.76 1.05 L-1.24 -0.4 Z' }),
+    svg('path', { class: 'costura', d: 'M0 -1.3 V-3 M1.24 -0.4 L2.85 0.93 M0.76 1.05 L1.76 2.43 M-0.76 1.05 L-1.76 2.43 M-1.24 -0.4 L-2.85 0.93' })));
 
   prepararArrastre(campo);
   return campo;
@@ -3619,6 +3622,7 @@ function pintarPizarra() {
                   onclick: () => guardarZonas(pizarra.posicion, { ataque: [], defensa: [] }) }, 'Borrar'))
             : null)
       : null,
+    h('p', { class: 'rotulo-ataque', text: 'Atacamos hacia arriba ↑' }),
     campo,
     jugada && !grabando
       ? h('div', { class: 'mandos-jugada' },
