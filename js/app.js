@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=51';
-import { cargarCopaFacil } from './copafacil.js?v=51';
-import { leerHoja, enviarHoja } from './hoja.js?v=51';
+import { CONFIG } from './config.js?v=52';
+import { cargarCopaFacil } from './copafacil.js?v=52';
+import { leerHoja, enviarHoja } from './hoja.js?v=52';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3243,7 +3243,7 @@ const PESTANAS_PIZARRA = [
 ];
 
 let pizarra = { sistema: SISTEMAS[0].id, pestana: 'ataque', jugada: null, paso: 0, posicion: null,
-  bucle: null, modoZona: 'ataque', colocando: null };
+  bucle: null, modoZona: 'ataque', herramienta: 'pincel', colocando: null };
 let grabando = null;  // { id, nombre, tipo, inicio: {pieza:[x,y]}, movs: [{pieza, de, a}] }
 
 const sistemaActual = () => SISTEMAS.find((x) => x.id === pizarra.sistema) || SISTEMAS[0];
@@ -3371,8 +3371,9 @@ function fotograma() {
 const idZona = (posicion) => `z-${pizarra.sistema}-${posicion}`;
 const GROSOR = 13;        // ancho del pincel, en unidades del campo
 const MAX_PUNTOS = 24;    // por brochazo; cada uno va en su propia fila
-const MAX_TRAZOS = 14;    // brochazos por posición, entre las dos fases
+const MAX_TRAZOS = 45;    // lo que aguanta la hoja: una fila por brochazo
 const TOPE_VIVO = 400;    // lo que se guarda mientras el dedo va
+const RADIO_GOMA = 7;     // lo que abarca la goma, en unidades del campo
 const PASO_MIN = 2.5;     // separación mínima entre puntos
 
 /**
@@ -3450,28 +3451,58 @@ function suavizar(puntos, vueltas = 2) {
 }
 
 /** El recorrido del pincel, abierto: nunca se cierra, así que no sale ninguna diagonal. */
-const comoCamino = (puntos) => suavizar(puntos)
+const comoCamino = (puntos) => (puntos.length <= 2 ? puntos : suavizar(puntos))
   .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
 
-async function guardarZonas(posicion, z) {
-  const vacia = !z.ataque.length && !z.defensa.length;
-  const nombre = `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`;
+/** Deja las zonas puestas en memoria, sin tocar la hoja: para que la goma vaya fluida. */
+function ponerZonas(posicion, z) {
   const pasos = [
     ...z.ataque.map((t) => ({ texto: 'ataque', posiciones: comoTexto(t) })),
     ...z.defensa.map((t) => ({ texto: 'defensa', posiciones: comoTexto(t) })),
   ];
-  // Se pinta ya, sin esperar a la hoja.
   if (estado.hoja) {
     const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== idZona(posicion));
-    estado.hoja.jugadas = vacia ? otras
-      : [...otras, { id: idZona(posicion), nombre, tipo: 'zonas', sistema: pizarra.sistema, pasos }];
+    estado.hoja.jugadas = pasos.length ? [...otras, {
+      id: idZona(posicion), nombre: `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`,
+      tipo: 'zonas', sistema: pizarra.sistema, pasos,
+    }] : otras;
   }
+  return pasos;
+}
+
+async function guardarZonas(posicion, z) {
+  const nombre = `Zonas · ${posicionesDe().find((p) => p.id === posicion)?.nombre || posicion}`;
+  const pasos = ponerZonas(posicion, z);
   pintarPizarra();
   const r = await enviarHoja(CONFIG.hoja, {
     accion: 'jugada', pin: recuperar(CLAVE_PIN),
     id: idZona(posicion), nombre, tipo: 'zonas', sistema: pizarra.sistema, pasos,
   }).catch(() => null);
   if (!r?.ok) aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+}
+
+/** Distancia de un punto a un segmento, para saber si la goma pilla el brochazo. */
+function distanciaASegmento([x, y], [ax, ay], [bx, by]) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const largo = dx * dx + dy * dy;
+  const t = largo ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / largo)) : 0;
+  return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+}
+
+const gomaPilla = (trazo, p) => (trazo.length === 1
+  ? Math.hypot(p[0] - trazo[0][0], p[1] - trazo[0][1]) <= RADIO_GOMA + GROSOR / 2
+  : trazo.some((_, i) => i && distanciaASegmento(p, trazo[i - 1], trazo[i]) <= RADIO_GOMA + GROSOR / 2));
+
+/** Borra de `z` los brochazos que toque el punto. Devuelve si quitó alguno. */
+function pasarGoma(z, p) {
+  let quito = false;
+  ['ataque', 'defensa'].forEach((fase) => {
+    const quedan = z[fase].filter((trazo) => !gomaPilla(trazo, p));
+    if (quedan.length !== z[fase].length) quito = true;
+    z[fase] = quedan;
+  });
+  return quito;
 }
 
 function deshacerTrazo() {
@@ -3560,6 +3591,7 @@ function prepararArrastre(campo) {
   let llevando = null;
   let desde = null;
   let trazo = null;
+  let borrando = null;
   const punto = (ev) => {
     const caja = campo.getBoundingClientRect();
     return [
@@ -3572,9 +3604,14 @@ function prepararArrastre(campo) {
     if (pizarra.pestana === 'zonas') {
       if (!permitido('jugada')) return;
       if (!pizarra.posicion) return aviso('Elige antes una posición', true);
-      trazo = [punto(ev)];
       try { campo.setPointerCapture(ev.pointerId); } catch { /* ya capturado */ }
       ev.preventDefault();
+      if (pizarra.herramienta === 'goma') {
+        borrando = { z: zonasDe(pizarra.posicion), cambio: false };
+        if (pasarGoma(borrando.z, punto(ev))) { borrando.cambio = true; ponerZonas(pizarra.posicion, borrando.z); moverPizarra(campo); }
+        return;
+      }
+      trazo = [punto(ev)];
       return;
     }
     if (!sePuedeMover()) return;
@@ -3588,11 +3625,25 @@ function prepararArrastre(campo) {
   });
 
   campo.addEventListener('pointermove', (ev) => {
+    if (borrando) {
+      if (pasarGoma(borrando.z, punto(ev))) {
+        borrando.cambio = true;
+        ponerZonas(pizarra.posicion, borrando.z);
+        moverPizarra(campo);
+      }
+      return;
+    }
     if (trazo) {
-      const [x, y] = punto(ev);
+      const p = punto(ev);
+      // La regla: solo dos puntos, el de salida y donde está el dedo.
+      if (pizarra.herramienta === 'recta') {
+        trazo = [trazo[0], p];
+        pintarTrazoEnCurso(campo, trazo);
+        return;
+      }
       const ultimo = trazo[trazo.length - 1];
-      if (Math.hypot(x - ultimo[0], y - ultimo[1]) < PASO_MIN) return;
-      if (trazo.length < TOPE_VIVO) trazo.push([x, y]);
+      if (Math.hypot(p[0] - ultimo[0], p[1] - ultimo[1]) < PASO_MIN) return;
+      if (trazo.length < TOPE_VIVO) trazo.push(p);
       pintarTrazoEnCurso(campo, trazo);
       return;
     }
@@ -3602,19 +3653,26 @@ function prepararArrastre(campo) {
   });
 
   const soltar = () => {
+    if (borrando) {
+      const { z, cambio } = borrando;
+      borrando = null;
+      if (cambio) guardarZonas(pizarra.posicion, z);
+      return;
+    }
     if (trazo) {
       const puntos = trazo;
       trazo = null;
       pintarTrazoEnCurso(campo, null);
-      if (puntos.length >= 2) {
+      if (puntos.length >= 2 && Math.hypot(puntos[0][0] - puntos[puntos.length - 1][0],
+        puntos[0][1] - puntos[puntos.length - 1][1]) + puntos.length > 3) {
         const z = zonasDe(pizarra.posicion);
         // Los brochazos se suman: pintar más nunca borra lo de antes.
-        z[pizarra.modoZona].push(repartir(puntos, MAX_PUNTOS));
+        z[pizarra.modoZona].push(pizarra.herramienta === 'recta' ? puntos : repartir(puntos, MAX_PUNTOS));
         if (z.ataque.length + z.defensa.length > MAX_TRAZOS) {
-          aviso('Ya no caben más brochazos en esta posición', true);
-        } else {
-          guardarZonas(pizarra.posicion, z);
+          z[pizarra.modoZona].pop();   // si no cabe, se descarta: no se guarda a medias
+          return aviso(`La hoja solo guarda ${MAX_TRAZOS} brochazos por posición`, true);
         }
+        guardarZonas(pizarra.posicion, z);
       }
       return;
     }
@@ -3791,9 +3849,13 @@ function pintarPizarra() {
           pizarra.posicion && puedeGrabar
             ? [h('div', { class: 'modos-zona' },
                 h('button', { type: 'button', class: `chip-modo ataque${pizarra.modoZona === 'ataque' ? ' puesto' : ''}`,
-                  onclick: () => { pizarra.modoZona = 'ataque'; pintarPizarra(); } }, 'Pintar ataque'),
+                  onclick: () => { pizarra.modoZona = 'ataque'; pintarPizarra(); } }, 'Ataque'),
                 h('button', { type: 'button', class: `chip-modo defensa${pizarra.modoZona === 'defensa' ? ' puesto' : ''}`,
-                  onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Pintar defensa')),
+                  onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Defensa')),
+               h('div', { class: 'herramientas-zona' },
+                [['pincel', 'Pincel'], ['recta', 'Recta'], ['goma', 'Goma']].map(([id, texto]) =>
+                  h('button', { type: 'button', class: `chip-util ${id}${pizarra.herramienta === id ? ' puesto' : ''}`,
+                    onclick: () => { pizarra.herramienta = id; pintarPizarra(); } }, texto))),
                h('div', { class: 'fila-acciones' },
                 h('button', { type: 'button', class: 'boton-secundario', onclick: deshacerTrazo }, 'Deshacer el último'),
                 h('button', { type: 'button', class: 'boton-secundario',
@@ -3857,7 +3919,10 @@ function explicaPizarra(jugada, enZonas, puedeGrabar) {
       h('p', { class: 'paso-ataque' }, h('strong', { text: 'Con balón: ' }), pos.txtAtaque),
       h('p', { class: 'paso-defensa' }, h('strong', { text: 'Sin balón: ' }), pos.txtDefensa),
       h('p', { class: 'apagado', text: puedeGrabar
-        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. Elige qué pintas y pasa el dedo por encima, como con un rotulador.`
+        ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. ${
+            pizarra.herramienta === 'goma' ? 'Pasa el dedo por encima de lo que quieras quitar.'
+              : pizarra.herramienta === 'recta' ? 'Arrastra de un punto a otro y sale una banda recta.'
+                : 'Pasa el dedo por encima, como con un rotulador.'}`
         : 'Rojo, lo que cubre atacando. Verde, lo que cubre defendiendo.' }));
   }
 

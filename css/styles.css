@@ -1488,3 +1488,13 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 }
 
 .ayuda-pizarra { margin: 0; font-size: 0.78rem; line-height: 1.35; text-align: center; }
+
+/* Las herramientas de las zonas */
+.herramientas-zona { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.chip-util {
+  cursor: pointer; font-weight: 700; font-size: 0.78rem; min-height: 36px; padding: 7px 8px;
+  border-radius: 8px; background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto-2);
+}
+.chip-util.puesto { background: var(--naranja); border-color: var(--naranja); color: #111; }
+.chip-util.goma.puesto { background: #e9e9e9; border-color: #e9e9e9; color: #111; }
+#pizarra .campo-pizarra.con-goma { cursor: cell; }
