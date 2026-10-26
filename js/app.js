@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=50';
-import { cargarCopaFacil } from './copafacil.js?v=50';
-import { leerHoja, enviarHoja } from './hoja.js?v=50';
+import { CONFIG } from './config.js?v=51';
+import { cargarCopaFacil } from './copafacil.js?v=51';
+import { leerHoja, enviarHoja } from './hoja.js?v=51';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -2454,8 +2454,9 @@ function abrirConvocatoria(p) {
     const dice = prelista.get(j.id);
     if (dice === 'voy') return [j.id, 'convocado'];
     if (dice === 'no' || lesionDe(j.id)?.estado === 'baja') return [j.id, 'no_viene'];
-    // Si nadie se ha apuntado todavía, se convoca a todos como antes.
-    return [j.id, prelista.size ? 'no_convocado' : 'convocado'];
+    // Sin prelista no se convoca a nadie de oficio: primero se apuntan ellos.
+    // Si no, abrir el editor y guardar sin querer dejaba una convocatoria entera hecha.
+    return [j.id, 'no_convocado'];
   }));
   const rival = rivalDe(p);
   abrirLista({
@@ -2467,7 +2468,7 @@ function abrirConvocatoria(p) {
         ? 'Sales de la convocatoria que ya habías hecho. Toca a cada jugador para cambiarlo: Convocado → Descansa → No convocado.'
         : prelista.size
           ? 'Salen convocados los que dijeron «Voy» en la prelista, y en rojo los que dijeron que no. Toca a cada jugador para cambiarlo.'
-          : 'Todavía no se ha apuntado nadie, así que salen todos convocados. Toca a cada jugador para cambiarlo.',
+          : 'Todavía no hay prelista, así que no sale nadie convocado. Espera a que se apunten, o ve tocando a los que convoques.',
     estados: pasado ? ESTADOS_PARTIDO_JUGADO : ESTADOS_PARTIDO,
     seleccion,
     prelista,
