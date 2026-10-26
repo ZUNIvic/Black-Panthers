@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=54';
-import { cargarCopaFacil } from './copafacil.js?v=54';
-import { leerHoja, enviarHoja } from './hoja.js?v=54';
+import { CONFIG } from './config.js?v=55';
+import { cargarCopaFacil } from './copafacil.js?v=55';
+import { leerHoja, enviarHoja } from './hoja.js?v=55';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3329,7 +3329,8 @@ async function guardarInicio(sitios) {
 /** Las jugadas grabadas por el cuerpo técnico, listas para reproducir. */
 function jugadasGrabadas(tipo) {
   return (estado.hoja?.jugadas || [])
-    .filter((j) => j.tipo === tipo && j.id !== idInicio() && (!j.sistema || j.sistema === pizarra.sistema))
+    .filter((j) => j.tipo === tipo && j.id !== idInicio() && !j.id.startsWith('x-')
+      && (!j.sistema || j.sistema === pizarra.sistema))
     .map((j) => {
       const pasos = (j.pasos || []).map((x) => leerPaso(x.posiciones)).filter(Boolean);
       const movs = pasos.filter((x) => x.pieza);
@@ -3343,8 +3344,39 @@ function jugadasGrabadas(tipo) {
 }
 
 /** Los ejemplos que vienen de serie, traducidos al mismo formato de movimientos. */
+const idOculta = (ejemplo) => `x-${pizarra.sistema}-${ejemplo}`;
+const ejemploOculto = (ejemplo) => (estado.hoja?.jugadas || []).some((j) => j.id === idOculta(ejemplo));
+const hayEjemplosOcultos = () => sistemaActual().jugadas.some((j) => ejemploOculto(j.id));
+
+/** Quita un ejemplo de la lista (o lo devuelve). No se borra: está en el código. */
+async function ocultarEjemplo(ejemplo, ocultar = true) {
+  const id = idOculta(ejemplo);
+  const pasos = ocultar ? [{ texto: ejemplo, posiciones: 'oculta' }] : [];
+  if (estado.hoja) {
+    const otras = (estado.hoja.jugadas || []).filter((j) => j.id !== id);
+    estado.hoja.jugadas = ocultar
+      ? [...otras, { id, nombre: 'Ejemplo quitado', tipo: 'oculta', sistema: pizarra.sistema, pasos }]
+      : otras;
+  }
+  if (ocultar && pizarra.jugada === ejemplo) { pizarra.jugada = null; pizarra.paso = 0; }
+  pararJugada();
+  pintarPizarra();
+  const r = await enviarHoja(CONFIG.hoja, {
+    accion: 'jugada', pin: recuperar(CLAVE_PIN),
+    id, nombre: 'Ejemplo quitado', tipo: 'oculta', sistema: pizarra.sistema, pasos,
+  }).catch(() => null);
+  if (!r?.ok) return aviso(`No se ha podido guardar: ${r?.error || 'la hoja no responde'}`, true);
+  aviso(ocultar ? 'Ejemplo quitado ✓' : 'Ejemplos recuperados ✓');
+}
+
+async function recuperarEjemplos() {
+  for (const j of sistemaActual().jugadas) {
+    if (ejemploOculto(j.id)) await ocultarEjemplo(j.id, false);
+  }
+}
+
 function ejemplosComoMovs(tipo) {
-  return sistemaActual().jugadas.filter((j) => j.tipo === tipo).map((j) => {
+  return sistemaActual().jugadas.filter((j) => j.tipo === tipo && !ejemploOculto(j.id)).map((j) => {
     const sitios0 = colocacionDeFabrica();   // los ejemplos salen de la de fábrica
     const sitios = { ...sitios0 };
     const grupos = [];
@@ -3974,8 +4006,12 @@ function pintarPizarra() {
           !colocando && hayInicioPropio()
             ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => guardarInicio(null) }, 'Quitar el inicio guardado')
             : null,
-          jugada?.grabada
-            ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) }, 'Borrar esta jugada')
+          jugada
+            ? h('button', { type: 'button', class: 'boton-secundario', onclick: () => borrarJugada(jugada) },
+                jugada.ejemplo ? 'Quitar este ejemplo' : 'Borrar esta jugada')
+            : null,
+          !jugada && hayEjemplosOcultos()
+            ? h('button', { type: 'button', class: 'boton-secundario', onclick: recuperarEjemplos }, 'Recuperar los ejemplos')
             : null)
       : null,
     !grabando && !enZonas && puedeGrabar && !jugada
@@ -4108,6 +4144,10 @@ async function guardarGrabacion() {
 }
 
 async function borrarJugada(jugada) {
+  if (jugada.ejemplo) {
+    if (!confirm(`¿Quitar el ejemplo «${jugada.nombre}»?\n\nDeja de verlo todo el equipo. Se puede recuperar.`)) return;
+    return ocultarEjemplo(jugada.id);
+  }
   if (!confirm(`¿Borrar la jugada «${jugada.nombre}»?`)) return;
   const r = await enviarHoja(CONFIG.hoja, { accion: 'jugada', pin: recuperar(CLAVE_PIN), id: jugada.id, pasos: [] }).catch(() => null);
   if (!r?.ok) return aviso('No se ha podido borrar', true);

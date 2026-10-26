@@ -187,9 +187,11 @@ Con el PIN del míster o el tuyo puedes:
   último» quita la última y «Borrar todo» las quita todas. Cada brochazo es una fila de la pestaña
   JUGADAS, y por eso caben cuarenta y cinco por posición.
 
-Todo esto vive en la pestaña **JUGADAS**: una fila por movimiento, y una fila por posición para las
-zonas. No hace falta tocarla a mano. Las jugadas de ejemplo que vienen de serie no se borran: están
-en el código.
+Las jugadas de ejemplo que vienen de serie se pueden **quitar**: las eliges y pulsas «Quitar este
+ejemplo». Dejan de verlas todos, y con «Recuperar los ejemplos» vuelven.
+
+Todo esto vive en la pestaña **JUGADAS**: una fila por movimiento, una por brochazo de zona y una
+por ejemplo quitado. No hace falta tocarla a mano.
 
 ### Quién va al entreno
 
