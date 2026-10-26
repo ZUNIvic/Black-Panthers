@@ -166,7 +166,9 @@ En **Equipo** hay un campo de fútbol 7 con tres pestañas: **Ofensivas**, **Def
 Con el PIN del míster o el tuyo puedes:
 
 - **Grabar una jugada.** Pulsas «● Grabar jugada», arrastras las fichas, los rivales y el balón, y cada
-  arrastre queda apuntado como un movimiento, en el orden en que lo haces. Le pones nombre y
+  arrastre queda apuntado como un movimiento, en el orden en que lo haces. Debajo sale la lista con
+  un número por movimiento: **si le pones el mismo número a dos, salen a la vez** (por ejemplo, los
+  dos laterales subiendo juntos), y cambiando los números reordenas la jugada. Le pones nombre y
   «■ Parar y guardar». El equipo la ve con ◀ ▶ y con **▶ Ver jugada**, que la reproduce sola.
 - **Poner la colocación de salida.** Fuera de la grabación, arrastra a quien quieras (un saque de
   banda, un córner, un saque de puerta) y pulsa **«Marcar como inicio»**. A partir de ahí la pizarra

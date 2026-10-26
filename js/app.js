@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=53';
-import { cargarCopaFacil } from './copafacil.js?v=53';
-import { leerHoja, enviarHoja } from './hoja.js?v=53';
+import { CONFIG } from './config.js?v=54';
+import { cargarCopaFacil } from './copafacil.js?v=54';
+import { leerHoja, enviarHoja } from './hoja.js?v=54';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3256,7 +3256,19 @@ const posicionesDe = () => sistemaActual().posiciones;
 
 const unPunto = ([x, y]) => `${Math.round(x)},${Math.round(y)}`;
 const comoSitios = (sitios) => '@' + Object.entries(sitios).map(([k, v]) => `${k}:${unPunto(v)}`).join('|');
-const comoMovimiento = (m) => `${m.pieza}:${unPunto(m.de)}>${unPunto(m.a)}`;
+const comoMovimiento = (m, orden) => `${orden}|${m.pieza}:${unPunto(m.de)}>${unPunto(m.a)}`;
+
+/** Agrupa los movimientos por su número: cada grupo es un paso de la jugada. */
+function porOrden(movs) {
+  const grupos = [];
+  movs.forEach((m, i) => {
+    const n = m.orden || i + 1;
+    const ya = grupos.find((g) => g.orden === n);
+    if (ya) ya.movs.push(m);
+    else grupos.push({ orden: n, movs: [m] });
+  });
+  return grupos.sort((a, b) => a.orden - b.orden).map((g) => g.movs);
+}
 
 function leerPaso(texto) {
   const t = String(texto || '').trim();
@@ -3269,9 +3281,13 @@ function leerPaso(texto) {
     });
     return { inicio: sitios };
   }
-  const m = /^([\w-]+):([-\d.]+),([-\d.]+)>([-\d.]+),([-\d.]+)$/.exec(t);
+  // "3|li:22,110>14,86": el 3 es el orden, y los que lo comparten salen a la vez.
+  const m = /^(?:(\d+)\|)?([\w-]+):([-\d.]+),([-\d.]+)>([-\d.]+),([-\d.]+)$/.exec(t);
   if (!m) return null;
-  return { pieza: m[1], de: [Number(m[2]), Number(m[3])], a: [Number(m[4]), Number(m[5])] };
+  return {
+    orden: m[1] ? Number(m[1]) : 0, pieza: m[2],
+    de: [Number(m[3]), Number(m[4])], a: [Number(m[5]), Number(m[6])],
+  };
 }
 
 /** La colocación de fábrica del sistema elegido. */
@@ -3316,13 +3332,14 @@ function jugadasGrabadas(tipo) {
     .filter((j) => j.tipo === tipo && j.id !== idInicio() && (!j.sistema || j.sistema === pizarra.sistema))
     .map((j) => {
       const pasos = (j.pasos || []).map((x) => leerPaso(x.posiciones)).filter(Boolean);
+      const movs = pasos.filter((x) => x.pieza);
       return {
         id: j.id, nombre: j.nombre, tipo: j.tipo, grabada: true,
         inicio: pasos.find((x) => x.inicio)?.inicio || null,
-        movs: pasos.filter((x) => x.pieza),
+        movs, grupos: porOrden(movs),
       };
     })
-    .filter((j) => j.movs.length);
+    .filter((j) => j.grupos.length);
 }
 
 /** Los ejemplos que vienen de serie, traducidos al mismo formato de movimientos. */
@@ -3330,18 +3347,20 @@ function ejemplosComoMovs(tipo) {
   return sistemaActual().jugadas.filter((j) => j.tipo === tipo).map((j) => {
     const sitios0 = colocacionDeFabrica();   // los ejemplos salen de la de fábrica
     const sitios = { ...sitios0 };
-    const movs = [];
+    const grupos = [];
     j.pasos.forEach((paso) => {
       const cambios = { ...(paso.mover || {}), ...(paso.rivales || {}) };
       if (paso.balon) cambios.balon = paso.balon;
+      const grupo = [];
       Object.entries(cambios).forEach(([pieza, a]) => {
         const de = sitios[pieza] || a;
-        if (de[0] !== a[0] || de[1] !== a[1]) movs.push({ pieza, de, a, texto: paso.texto });
+        if (de[0] !== a[0] || de[1] !== a[1]) grupo.push({ pieza, de, a, texto: paso.texto });
         sitios[pieza] = a;
       });
+      if (grupo.length) grupos.push(grupo);
     });
-    return { id: j.id, nombre: j.nombre, tipo: j.tipo, inicio: sitios0, movs, ejemplo: true };
-  }).filter((j) => j.movs.length);
+    return { id: j.id, nombre: j.nombre, tipo: j.tipo, inicio: sitios0, grupos, ejemplo: true };
+  }).filter((j) => j.grupos.length);
 }
 
 const jugadasDe = (tipo) => [...jugadasGrabadas(tipo), ...ejemplosComoMovs(tipo)];
@@ -3355,13 +3374,17 @@ function fotograma() {
   if (!jugada) return { sitios: colocacionBase(), texto: '', conBalon: false };
   const sitios = { ...colocacionBase(), ...(jugada.inicio || {}) };
   let texto = '';
-  for (let i = 0; i < pizarra.paso && i < jugada.movs.length; i++) {
-    const m = jugada.movs[i];
-    sitios[m.pieza] = m.a;
-    if (m.texto) texto = m.texto;
+  for (let i = 0; i < pizarra.paso && i < jugada.grupos.length; i++) {
+    jugada.grupos[i].forEach((m) => {
+      sitios[m.pieza] = m.a;
+      if (m.texto) texto = m.texto;
+    });
   }
-  const hecho = jugada.movs[Math.max(0, pizarra.paso - 1)];
-  return { sitios, texto: texto || hecho?.texto || '', conBalon: true, resaltar: pizarra.paso ? hecho?.pieza : null };
+  const hecho = jugada.grupos[Math.max(0, pizarra.paso - 1)] || [];
+  return {
+    sitios, texto: texto || hecho[0]?.texto || '', conBalon: true,
+    resaltar: pizarra.paso ? hecho.map((m) => m.pieza) : [],
+  };
 }
 
 /* ───────── Zonas a cubrir ───────── */
@@ -3746,7 +3769,8 @@ function prepararArrastre(campo) {
       pieza.setAttribute('transform', `translate(${desde[0]} ${desde[1]})`);
       return aviso(`El máximo son ${MAX_MOVS} movimientos`, true);
     }
-    grabando.movs.push({ pieza: pieza.dataset.pieza, de: desde, a: hasta });
+    const siguiente = grabando.movs.reduce((n, m) => Math.max(n, m.orden), 0) + 1;
+    grabando.movs.push({ pieza: pieza.dataset.pieza, de: desde, a: hasta, orden: siguiente });
     pintarPizarra();
   };
   campo.addEventListener('pointerup', soltar);
@@ -3796,7 +3820,7 @@ function moverPizarra(campo) {
     campo.querySelectorAll('[data-pieza]').forEach((g) => {
       const xy = foto.sitios[g.dataset.pieza];
       if (xy) g.setAttribute('transform', `translate(${xy[0]} ${xy[1]})`);
-      g.classList.toggle('moviendo', Boolean(foto.resaltar) && g.dataset.pieza === foto.resaltar);
+      g.classList.toggle('moviendo', (foto.resaltar || []).includes(g.dataset.pieza));
     });
     campo.querySelector('.balon').setAttribute('opacity', foto.conBalon || enZonas ? '1' : '0.4');
   } else {
@@ -3836,7 +3860,7 @@ function moverPizarra(campo) {
   const rastro = campo.querySelector('.rastro');
   while (rastro.firstChild) rastro.removeChild(rastro.firstChild);
   if (!enZonas) {
-    const movs = grabando ? grabando.movs : (jugadaActual()?.movs || []).slice(0, pizarra.paso);
+    const movs = grabando ? grabando.movs : (jugadaActual()?.grupos || []).slice(0, pizarra.paso).flat();
     movs.forEach((m, i) => rastro.appendChild(svg('line', {
       x1: m.de[0], y1: m.de[1], x2: m.a[0], y2: m.a[1],
       class: `flecha-mov${m.pieza === 'balon' ? ' de-balon' : ''}${i === movs.length - 1 ? ' ultima' : ''}`,
@@ -3934,7 +3958,7 @@ function pintarPizarra() {
           h('button', { type: 'button', class: `chip-fase jugar${pizarra.bucle ? ' puesto' : ''}`, onclick: alternarJugada },
             pizarra.bucle ? '⏸ Parar' : '▶ Ver jugada'),
           h('button', { type: 'button', class: 'chip-fase', 'aria-label': 'Movimiento siguiente', onclick: () => irAPaso(pizarra.paso + 1) }, '›'),
-          h('span', { class: 'cuenta-pasos', text: `${pizarra.paso} de ${jugada.movs.length}` }))
+          h('span', { class: 'cuenta-pasos', text: `${pizarra.paso} de ${jugada.grupos.length}` }))
       : null,
     explicaPizarra(jugada, enZonas, puedeGrabar),
     !grabando && !enZonas && puedeGrabar
@@ -3996,7 +4020,9 @@ function explicaPizarra(jugada, enZonas, puedeGrabar) {
     return h('div', { class: 'explica-pizarra' },
       h('h3', {}, jugada.nombre),
       h('p', { class: `paso-${jugada.tipo}`, text: foto?.texto
-        || (pizarra.paso ? `Movimiento ${pizarra.paso}: ${nombrePieza(jugada.movs[pizarra.paso - 1].pieza)}` : 'Colocación de salida') }));
+        || (pizarra.paso
+          ? `Movimiento ${pizarra.paso}: ${jugada.grupos[pizarra.paso - 1].map((m) => nombrePieza(m.pieza)).join(' y ')}`
+          : 'Colocación de salida') }));
   }
 
   return h('div', { class: 'explica-pizarra' }, pos
@@ -4021,7 +4047,14 @@ function cajaGrabacion() {
       : 'Arrastra las fichas, los rivales y el balón. Cada arrastre es un movimiento de la jugada.' }),
     h('p', { class: 'cuenta-movs' },
       h('strong', { text: `${n} ${n === 1 ? 'movimiento' : 'movimientos'}` }),
-      n ? h('span', { class: 'apagado', text: ` · el último, ${nombrePieza(grabando.movs[n - 1].pieza)}` }) : null),
+      n ? h('span', { class: 'apagado', text: ` en ${porOrden(grabando.movs).length} pasos` }) : null),
+    n ? h('ol', { class: 'movs-grabados' }, grabando.movs.map((m, i) => h('li', {},
+      h('input', {
+        type: 'number', min: 1, max: n, value: m.orden, 'aria-label': `Orden de ${nombrePieza(m.pieza)}`,
+        onchange: (ev) => { m.orden = Math.max(1, Math.min(n, Number(ev.target.value) || i + 1)); pintarPizarra(); },
+      }),
+      h('span', { class: 'quien', text: nombrePieza(m.pieza) }))) ) : null,
+    n > 1 ? h('p', { class: 'apagado ayuda-orden', text: 'Mismo número, a la vez. Cambia el número para reordenar.' }) : null,
     h('label', { class: 'campo-texto' },
       h('span', { text: 'Nombre de la jugada' }),
       h('input', { type: 'text', id: 'nombre-jugada', maxlength: 60, value: grabando.nombre,
@@ -4058,7 +4091,7 @@ async function guardarGrabacion() {
   const nombre = (grabando.nombre || '').trim() || (grabando.tipo === 'defensa' ? 'Jugada defensiva' : 'Jugada ofensiva');
   const pasos = [
     { texto: '', posiciones: comoSitios(grabando.inicio || colocacionBase()) },
-    ...grabando.movs.map((m) => ({ texto: '', posiciones: comoMovimiento(m) })),
+    ...grabando.movs.map((m) => ({ texto: '', posiciones: comoMovimiento(m, m.orden) })),
   ];
   const guardada = { id: grabando.id, nombre, tipo: grabando.tipo, sistema: pizarra.sistema, pasos };
   const r = await enviarHoja(CONFIG.hoja, { accion: 'jugada', pin: recuperar(CLAVE_PIN), ...guardada }).catch(() => null);
@@ -4092,7 +4125,7 @@ function irAPaso(n) {
   const jugada = jugadaActual();
   if (!jugada) return;
   pararJugada();
-  const total = jugada.movs.length;
+  const total = jugada.grupos.length;
   pizarra.paso = ((n % (total + 1)) + total + 1) % (total + 1);
   pintarPizarra();
 }
@@ -4103,7 +4136,7 @@ function arrancarJugada() {
   pizarra.bucle = setInterval(() => {
     const j = jugadaActual();
     if (!j) return pararJugada();
-    pizarra.paso = pizarra.paso >= j.movs.length ? 0 : pizarra.paso + 1;
+    pizarra.paso = pizarra.paso >= j.grupos.length ? 0 : pizarra.paso + 1;
     pintarPizarra();
   }, PASO_MS);
   pintarPizarra();

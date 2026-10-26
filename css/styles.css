@@ -1499,3 +1499,13 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 .chip-util.puesto { background: var(--naranja); border-color: var(--naranja); color: #111; }
 .chip-util.goma.puesto { background: #e9e9e9; border-color: #e9e9e9; color: #111; }
 #pizarra .campo-pizarra.con-goma { cursor: cell; }
+
+/* La lista de movimientos mientras se graba */
+.movs-grabados { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.movs-grabados li { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.movs-grabados input {
+  width: 52px; text-align: center; background: var(--negro); border: 1px solid var(--borde);
+  border-radius: 6px; color: var(--texto); padding: 5px; font: inherit; font-weight: 700;
+}
+.movs-grabados .quien { color: var(--texto-2); }
+.ayuda-orden { margin: 0; font-size: 0.76rem; }
