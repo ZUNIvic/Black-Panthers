@@ -176,7 +176,10 @@ Con el PIN del míster o el tuyo puedes:
   verde) y la herramienta:
   - **Pincel**: pasas el dedo por encima, como con un rotulador.
   - **Recta**: arrastras de un punto a otro y sale una banda recta, para dejar los bordes limpios.
-  - **Goma**: pasas el dedo por encima de lo que quieras quitar.
+  - **Círculo**, **Rectángulo** y **Triángulo**: arrastras en diagonal para marcar el tamaño, como
+    en el PowerPoint, y la figura sale rellena.
+  - **Goma**: pasas el dedo por encima de lo que quieras quitar; las figuras se borran tocándolas
+    por dentro.
 
   Cada pasada se suma a las anteriores, así que la zona se va rellenando a brochazos. «Deshacer el
   último» quita la última y «Borrar todo» las quita todas. Cada brochazo es una fila de la pestaña

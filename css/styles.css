@@ -1491,6 +1491,7 @@ body.bloqueada > .barra, body.bloqueada > #contenido, body.bloqueada > .barra-in
 
 /* Las herramientas de las zonas */
 .herramientas-zona { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.chip-util { font-size: 0.72rem; padding: 7px 4px; }
 .chip-util {
   cursor: pointer; font-weight: 700; font-size: 0.78rem; min-height: 36px; padding: 7px 8px;
   border-radius: 8px; background: var(--panel-2); border: 2px solid var(--borde); color: var(--texto-2);

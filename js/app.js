@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=52';
-import { cargarCopaFacil } from './copafacil.js?v=52';
-import { leerHoja, enviarHoja } from './hoja.js?v=52';
+import { CONFIG } from './config.js?v=53';
+import { cargarCopaFacil } from './copafacil.js?v=53';
+import { leerHoja, enviarHoja } from './hoja.js?v=53';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -3374,6 +3374,7 @@ const MAX_PUNTOS = 24;    // por brochazo; cada uno va en su propia fila
 const MAX_TRAZOS = 45;    // lo que aguanta la hoja: una fila por brochazo
 const TOPE_VIVO = 400;    // lo que se guarda mientras el dedo va
 const RADIO_GOMA = 7;     // lo que abarca la goma, en unidades del campo
+const FIGURAS = { circulo: 'c', rectangulo: 'r', triangulo: 't' };
 const PASO_MIN = 2.5;     // separación mínima entre puntos
 
 /**
@@ -3387,8 +3388,8 @@ function zonasDe(posicion) {
   (fila?.pasos || []).forEach((paso) => {
     const fase = normalizaTexto(paso.texto || '');
     if (fase === 'ataque' || fase === 'defensa') {
-      const puntos = comoPuntos(paso.posiciones);
-      if (puntos.length) res[fase].push(puntos);
+      const t = comoTrazo(paso.posiciones);
+      if (t) res[fase].push(t);
       return;
     }
     // Formato viejo: una fila con las dos fases juntas.
@@ -3396,20 +3397,51 @@ function zonasDe(posicion) {
       const i = trozo.indexOf(':');
       const clave = trozo.slice(0, i);
       if (clave !== 'ataque' && clave !== 'defensa') return;
-      trozo.slice(i + 1).split('/').forEach((t) => {
-        const puntos = comoPuntos(t);
-        if (puntos.length) res[clave].push(puntos);
+      trozo.slice(i + 1).split('/').forEach((x) => {
+        const t = comoTrazo(x);
+        if (t) res[clave].push(t);
       });
     });
   });
   return res;
 }
 
-const comoPuntos = (texto) => String(texto || '').trim().split(' ')
-  .map((par) => par.split(',').map(Number))
-  .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+/* Un brochazo se guarda como "12,30 40,55 ..." y una figura como "#c 12,30 40,55",
+   donde c es círculo, r rectángulo y t triángulo, con las dos esquinas del marco. */
 
-const comoTexto = (puntos) => puntos.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ');
+function comoTrazo(texto) {
+  const t = String(texto || '').trim();
+  const fig = t.startsWith('#') ? t[1] : '';
+  const puntos = (fig ? t.slice(2) : t).trim().split(' ')
+    .map((par) => par.split(',').map(Number))
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (fig && puntos.length < 2) return null;
+  if (!fig && puntos.length < 1) return null;
+  return { fig: 'crt'.includes(fig) ? fig : '', p: puntos };
+}
+
+const comoTexto = (t) => (t.fig ? `#${t.fig} ` : '')
+  + t.p.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(' ');
+
+/** Los puntos de una figura a partir de las dos esquinas de su marco. */
+function puntosDeFigura(fig, [ax, ay], [bx, by]) {
+  const x1 = Math.min(ax, bx);
+  const x2 = Math.max(ax, bx);
+  const y1 = Math.min(ay, by);
+  const y2 = Math.max(ay, by);
+  if (fig === 'r') return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  if (fig === 't') return [[(x1 + x2) / 2, y1], [x2, y2], [x1, y2]];
+  const cx = (x1 + x2) / 2;
+  const cy = (y1 + y2) / 2;
+  const rx = (x2 - x1) / 2;
+  const ry = (y2 - y1) / 2;
+  return Array.from({ length: 36 }, (_, i) => {
+    const a = (i / 36) * Math.PI * 2;
+    return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
+  });
+}
+
+const puntosDe = (t) => (t.fig ? puntosDeFigura(t.fig, t.p[0], t.p[1]) : t.p);
 
 /**
  * Deja el brochazo en como mucho `tope` puntos, repartidos por igual a lo largo
@@ -3451,8 +3483,11 @@ function suavizar(puntos, vueltas = 2) {
 }
 
 /** El recorrido del pincel, abierto: nunca se cierra, así que no sale ninguna diagonal. */
-const comoCamino = (puntos) => (puntos.length <= 2 ? puntos : suavizar(puntos))
-  .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+function comoCamino(trazo) {
+  const puntos = trazo.p;
+  return (puntos.length <= 2 || trazo.recto ? puntos : suavizar(puntos))
+    .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+}
 
 /** Deja las zonas puestas en memoria, sin tocar la hoja: para que la goma vaya fluida. */
 function ponerZonas(posicion, z) {
@@ -3490,9 +3525,23 @@ function distanciaASegmento([x, y], [ax, ay], [bx, by]) {
   return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
 }
 
-const gomaPilla = (trazo, p) => (trazo.length === 1
-  ? Math.hypot(p[0] - trazo[0][0], p[1] - trazo[0][1]) <= RADIO_GOMA + GROSOR / 2
-  : trazo.some((_, i) => i && distanciaASegmento(p, trazo[i - 1], trazo[i]) <= RADIO_GOMA + GROSOR / 2));
+/** ¿Está el punto dentro del polígono? (para borrar figuras tocándolas por dentro) */
+function dentroDe(puntos, [x, y]) {
+  let dentro = false;
+  for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
+    const [xi, yi] = puntos[i];
+    const [xj, yj] = puntos[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dentro = !dentro;
+  }
+  return dentro;
+}
+
+function gomaPilla(trazo, p) {
+  const puntos = puntosDe(trazo);
+  if (trazo.fig) return dentroDe(puntos, p);
+  if (puntos.length === 1) return Math.hypot(p[0] - puntos[0][0], p[1] - puntos[0][1]) <= RADIO_GOMA + GROSOR / 2;
+  return puntos.some((_, i) => i && distanciaASegmento(p, puntos[i - 1], puntos[i]) <= RADIO_GOMA + GROSOR / 2);
+}
 
 /** Borra de `z` los brochazos que toque el punto. Devuelve si quitó alguno. */
 function pasarGoma(z, p) {
@@ -3635,8 +3684,8 @@ function prepararArrastre(campo) {
     }
     if (trazo) {
       const p = punto(ev);
-      // La regla: solo dos puntos, el de salida y donde está el dedo.
-      if (pizarra.herramienta === 'recta') {
+      // La regla y las figuras: solo dos puntos, el de salida y donde está el dedo.
+      if (pizarra.herramienta === 'recta' || FIGURAS[pizarra.herramienta]) {
         trazo = [trazo[0], p];
         pintarTrazoEnCurso(campo, trazo);
         return;
@@ -3663,11 +3712,15 @@ function prepararArrastre(campo) {
       const puntos = trazo;
       trazo = null;
       pintarTrazoEnCurso(campo, null);
-      if (puntos.length >= 2 && Math.hypot(puntos[0][0] - puntos[puntos.length - 1][0],
-        puntos[0][1] - puntos[puntos.length - 1][1]) + puntos.length > 3) {
+      const fig = FIGURAS[pizarra.herramienta] || '';
+      const largo = puntos.length < 2 ? 0 : Math.hypot(puntos[0][0] - puntos[puntos.length - 1][0],
+        puntos[0][1] - puntos[puntos.length - 1][1]);
+      if (puntos.length >= 2 && (fig || pizarra.herramienta === 'recta' ? largo > 4 : largo + puntos.length > 3)) {
         const z = zonasDe(pizarra.posicion);
         // Los brochazos se suman: pintar más nunca borra lo de antes.
-        z[pizarra.modoZona].push(pizarra.herramienta === 'recta' ? puntos : repartir(puntos, MAX_PUNTOS));
+        z[pizarra.modoZona].push(fig
+          ? { fig, p: [puntos[0], puntos[puntos.length - 1]] }
+          : { fig: '', p: pizarra.herramienta === 'recta' ? puntos : repartir(puntos, MAX_PUNTOS) });
         if (z.ataque.length + z.defensa.length > MAX_TRAZOS) {
           z[pizarra.modoZona].pop();   // si no cabe, se descarta: no se guarda a medias
           return aviso(`La hoja solo guarda ${MAX_TRAZOS} brochazos por posición`, true);
@@ -3708,11 +3761,19 @@ function pintarTrazoEnCurso(campo, puntos) {
     g = svg('path', { class: 'trazo-vivo', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
     campo.querySelector('.capa-zonas').appendChild(g);
   }
-  g.setAttribute('d', comoCamino(puntos));
-  g.setAttribute('fill', 'none');
-  g.setAttribute('stroke', pizarra.modoZona === 'ataque' ? '#ef3024' : '#10dc6e');
-  g.setAttribute('stroke-width', GROSOR);
-  g.setAttribute('stroke-linecap', 'round');
+  const color = pizarra.modoZona === 'ataque' ? '#ef3024' : '#10dc6e';
+  const fig = FIGURAS[pizarra.herramienta] || '';
+  if (fig && puntos.length >= 2) {
+    g.setAttribute('d', `${comoCamino({ p: puntosDeFigura(fig, puntos[0], puntos[1]), recto: true })} Z`);
+    g.setAttribute('fill', color);
+    g.setAttribute('stroke', 'none');
+  } else {
+    g.setAttribute('d', comoCamino({ p: puntos }));
+    g.setAttribute('fill', 'none');
+    g.setAttribute('stroke', color);
+    g.setAttribute('stroke-width', GROSOR);
+    g.setAttribute('stroke-linecap', 'round');
+  }
   g.setAttribute('opacity', '0.55');
 }
 
@@ -3761,10 +3822,12 @@ function moverPizarra(campo) {
     [['defensa', '#10dc6e'], ['ataque', '#ef3024']].forEach(([fase, color]) => {
       if (!z[fase].length) return;
       const grupo = svg('g', { class: `zona ${fase}`, opacity: 0.55 });
-      z[fase].forEach((trazo) => grupo.appendChild(svg('path', {
-        d: comoCamino(trazo), fill: 'none', stroke: color, 'stroke-width': GROSOR,
-        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-      })));
+      z[fase].forEach((t) => grupo.appendChild(t.fig
+        ? svg('path', { d: `${comoCamino({ p: puntosDe(t), recto: true })} Z`, fill: color, stroke: 'none' })
+        : svg('path', {
+            d: comoCamino(t), fill: 'none', stroke: color, 'stroke-width': GROSOR,
+            'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          })));
       capa.appendChild(grupo);
     });
   }
@@ -3853,7 +3916,8 @@ function pintarPizarra() {
                 h('button', { type: 'button', class: `chip-modo defensa${pizarra.modoZona === 'defensa' ? ' puesto' : ''}`,
                   onclick: () => { pizarra.modoZona = 'defensa'; pintarPizarra(); } }, 'Defensa')),
                h('div', { class: 'herramientas-zona' },
-                [['pincel', 'Pincel'], ['recta', 'Recta'], ['goma', 'Goma']].map(([id, texto]) =>
+                [['pincel', 'Pincel'], ['recta', 'Recta'], ['circulo', 'Círculo'],
+                 ['rectangulo', 'Rectángulo'], ['triangulo', 'Triángulo'], ['goma', 'Goma']].map(([id, texto]) =>
                   h('button', { type: 'button', class: `chip-util ${id}${pizarra.herramienta === id ? ' puesto' : ''}`,
                     onclick: () => { pizarra.herramienta = id; pintarPizarra(); } }, texto))),
                h('div', { class: 'fila-acciones' },
@@ -3922,7 +3986,8 @@ function explicaPizarra(jugada, enZonas, puedeGrabar) {
         ? `${z.ataque.length} de ataque y ${z.defensa.length} de defensa. ${
             pizarra.herramienta === 'goma' ? 'Pasa el dedo por encima de lo que quieras quitar.'
               : pizarra.herramienta === 'recta' ? 'Arrastra de un punto a otro y sale una banda recta.'
-                : 'Pasa el dedo por encima, como con un rotulador.'}`
+                : FIGURAS[pizarra.herramienta] ? 'Arrastra en diagonal para marcar el tamaño de la figura.'
+                  : 'Pasa el dedo por encima, como con un rotulador.'}`
         : 'Rojo, lo que cubre atacando. Verde, lo que cubre defendiendo.' }));
   }
 
