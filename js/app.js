@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=55';
-import { cargarCopaFacil } from './copafacil.js?v=55';
-import { leerHoja, enviarHoja } from './hoja.js?v=55';
+import { CONFIG } from './config.js?v=56';
+import { cargarCopaFacil } from './copafacil.js?v=56';
+import { leerHoja, enviarHoja } from './hoja.js?v=56';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -590,12 +590,14 @@ function bloquePrelista(p) {
             h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
         }))
       : h('p', { class: 'apagado', text: 'Todavía no se ha apuntado nadie.' }),
+    // Los que han dicho que no, con su rótulo: en gris no se entendía qué eran.
     no.length
-      ? h('ul', { class: 'chips' }, no.map((x) => {
-          const j = jugadorPorId(x.id);
-          return h('li', {}, h('span', { class: 'chip no' },
-            h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
-        }))
+      ? [h('h4', { class: 'subtitulo-no' }, '✗ No van', h('small', { text: ` · ${no.length}` })),
+         h('ul', { class: 'chips' }, no.map((x) => {
+           const j = jugadorPorId(x.id);
+           return h('li', {}, h('span', { class: 'chip no' },
+             h('span', { class: 'dorsal', text: j.dorsal ?? '–' }), nombreCorto(j)));
+         }))]
       : null,
     !yo
       ? h('p', { class: 'apagado', text: 'Identifícate para apuntarte (se pregunta al entrar).' })
