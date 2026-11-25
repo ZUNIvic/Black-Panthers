@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=56';
-import { cargarCopaFacil } from './copafacil.js?v=56';
-import { leerHoja, enviarHoja } from './hoja.js?v=56';
+import { CONFIG } from './config.js?v=57';
+import { cargarCopaFacil } from './copafacil.js?v=57';
+import { leerHoja, enviarHoja } from './hoja.js?v=57';
 
 /* ───────────────────────── Estado ───────────────────────── */
 
@@ -1598,18 +1598,22 @@ function pintarCumples() {
 
 /* Roles del equipo */
 
-const ROLES = ['Míster', 'Segundo entrenador', 'Tercer entrenador', 'Cuarto entrenador', 'Capitán', 'Segundo capitán',
+const CUERPO = 'Cuerpo técnico';
+// Como estaba antes: míster y entrenadores numerados. Se siguen reconociendo para
+// que lo que ya hay en la hoja cuente como cuerpo técnico, pero ya no se ofrecen.
+const ROLES_VIEJOS = ['Míster', 'Segundo entrenador', 'Tercer entrenador', 'Cuarto entrenador'];
+const ROLES = [CUERPO, ...ROLES_VIEJOS, 'Capitán', 'Segundo capitán',
   'Presidente', 'Vicepresidente', 'Delegado', 'Tesorero', 'Vocal', 'Miembro fundador'];
 const JUNTA = ['Presidente', 'Vicepresidente', 'Delegado', 'Tesorero', 'Vocal'];
-// Los únicos roles que salen en la plantilla (pestaña Equipo).
-const ROLES_PLANTILLA = ['Míster', 'Segundo entrenador', 'Tercer entrenador', 'Cuarto entrenador', 'Capitán', 'Segundo capitán'];
+// Los únicos roles que salen en la plantilla (pestaña Estrategia y equipo).
+const ROLES_PLANTILLA = [CUERPO, ...ROLES_VIEJOS, 'Capitán', 'Segundo capitán'];
 const ETIQUETA_ROL = {
-  'Segundo entrenador': '2º entrenador', 'Tercer entrenador': '3er entrenador', 'Cuarto entrenador': '4º entrenador',
   'Segundo capitán': '2º capitán',
+  ...Object.fromEntries(ROLES_VIEJOS.map((r) => [r, CUERPO])),
 };
-// Entrenadores: [rol, clave para los que no están en la plantilla, número].
-const ENTRENADORES = [['Segundo entrenador', 'segundo', '2º'], ['Tercer entrenador', 'tercero', '3º'], ['Cuarto entrenador', 'cuarto', '4º']];
 const OTRA_PERSONA = '__otra';
+
+const esCuerpoTecnico = (j) => rolesDe(j).some((r) => r === CUERPO || ROLES_VIEJOS.includes(r));
 
 const normalizaTexto = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 const rolConocido = (r) => ROLES.find((x) => normalizaTexto(x) === normalizaTexto(r)) || r;
@@ -1637,23 +1641,12 @@ function pintarRoles() {
   // Salen todos los que tengan rol, aunque no estén activos (p. ej. el míster).
   const todos = plantillaCompleta();
   const con = (rol) => todos.filter((j) => rolesDe(j).includes(rol));
-  const ct = estado.hoja.cuerpoTecnico || {};
-
-  // Cuerpo técnico: foto solo del míster; los entrenadores, al lado y solo con el nombre.
-  const misters = con('Míster');
-  const entrenadores = ENTRENADORES
-    .map(([rol, clave, numero]) => {
-      const j = con(rol)[0];
-      const nombre = j ? nombreCorto(j) : ct[clave];
-      return nombre ? h('li', {}, h('span', { class: 'num', text: numero }), h('span', { text: nombre })) : null;
-    })
-    .filter(Boolean);
-  const cuerpoTecnico = misters.length || entrenadores.length
+  // Cuerpo técnico: todos al mismo nivel, sin cargos ni números.
+  const tecnicos = todos.filter(esCuerpoTecnico);
+  const cuerpoTecnico = tecnicos.length
     ? h('article', { class: 'rol cuerpo-tecnico' },
         h('h3', { text: 'Cuerpo técnico' }),
-        h('div', { class: 'ct-fila' },
-          misters.map((j) => persona(j, 'Míster')),
-          entrenadores.length ? h('ul', { class: 'entrenadores', 'aria-label': 'Entrenadores' }, entrenadores) : null))
+        h('div', { class: 'fila-personas' }, tecnicos.map((j) => persona(j, null))))
     : null;
 
   const capitanes = [...con('Capitán').map((j) => [j, 'Capitán']), ...con('Segundo capitán').map((j) => [j, '2º capitán'])];
@@ -1724,34 +1717,17 @@ function abrirRoles() {
   const todos = plantillaCompleta();
   const titular = (rol) => todos.find((j) => rolesDe(j).includes(rol))?.id || '';
   const titulares = (rol) => new Set(todos.filter((j) => rolesDe(j).includes(rol)).map((j) => j.id));
-  const ct = estado.hoja?.cuerpoTecnico || {};
-
   const unico = (rol, etiqueta) => {
     const selector = selectorJugador(titular(rol));
     selector.dataset.rol = rol;
     return h('label', { class: 'campo' }, h('span', { text: etiqueta }), selector);
   };
-  const entrenador = ([rol, clave, numero]) => {
-    const id = titular(rol);
-    const externo = ct[clave] || '';
-    const selector = selectorJugador(id || (externo ? OTRA_PERSONA : ''), { otraPersona: true });
-    selector.dataset.entrenador = rol;
-    selector.dataset.clave = clave;
-    const texto = h('input', { type: 'text', maxlength: 40, placeholder: 'Nombre (sale sin foto)', 'aria-label': `Nombre del ${numero} entrenador` });
-    texto.dataset.externo = clave;
-    texto.value = externo;
-    texto.hidden = selector.value !== OTRA_PERSONA;
-    selector.onchange = () => {
-      texto.hidden = selector.value !== OTRA_PERSONA;
-      if (!texto.hidden) texto.focus();
-    };
-    return h('div', { class: 'campo' }, h('span', { text: `${numero} entrenador` }), selector, texto);
-  };
 
   pintar($('#roles-editor'),
     h('h3', { class: 'subtitulo', text: 'Cuerpo técnico' }),
-    unico('Míster', 'Míster (sale con foto)'),
-    ENTRENADORES.map(entrenador),
+    h('div', { class: 'campo' },
+      h('span', { text: 'Quiénes son (todos al mismo nivel)' }),
+      botonesJugadores(CUERPO, new Set(todos.filter(esCuerpoTecnico).map((j) => j.id)))),
     h('h3', { class: 'subtitulo', text: 'Capitanes' }),
     unico('Capitán', 'Capitán'),
     unico('Segundo capitán', '2º capitán'),
@@ -1783,12 +1759,8 @@ async function guardarRolesDialogo() {
     asignados.get(id).add(rol);
   };
   caja.querySelectorAll('select[data-rol]').forEach((s) => dar(s.value, s.dataset.rol));
+  // Los entrenadores numerados ya no existen: al guardar se limpian.
   const cuerpoTecnico = {};
-  caja.querySelectorAll('select[data-entrenador]').forEach((s) => {
-    const clave = s.dataset.clave;
-    cuerpoTecnico[clave] = s.value === OTRA_PERSONA ? caja.querySelector(`[data-externo="${clave}"]`).value.trim() : '';
-    dar(s.value, s.dataset.entrenador);
-  });
   caja.querySelectorAll('[data-rol-varios]').forEach((g) =>
     g.querySelectorAll('[aria-pressed="true"]').forEach((b) => dar(b.dataset.id, g.dataset.rolVarios)));
   const cortos = new Map([...caja.querySelectorAll('.fila-corto input')].map((i) => [i.dataset.id, i.value.trim()]));
